@@ -126,6 +126,12 @@ void GrDirectContext::abandonContext() {
         return;
     }
 
+    if (fInsideReleaseProcCnt) {
+        SkDEBUGFAIL("Calling GrDirectContext::abandonContext() while inside a ReleaseProc is not "
+                    "allowed");
+        return;
+    }
+
     INHERITED::abandonContext();
 
     // We need to make sure all work is finished on the gpu before we start releasing resources.
@@ -141,9 +147,6 @@ void GrDirectContext::abandonContext() {
     fResourceCache->abandonAll();
 
     fGpu->disconnect(GrGpu::DisconnectType::kAbandon);
-
-    // Must be after GrResourceCache::abandonAll().
-    fMappedBufferManager.reset();
 
     if (fSmallPathAtlasMgr) {
         fSmallPathAtlasMgr->reset();
