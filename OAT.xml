@@ -3,62 +3,105 @@
     <oatconfig>
         <policylist>
             <policy name="projectPolicy" desc="">
-                <policyitem type="compatibility" name="FTL" path="third_party/freetype2/include/freetype-android.*" desc="" />
                 <policyitem type="compatibility" name="FTL" path="third_party/freetype2/include/freetype-no-type1/ftoption.h" desc="" />
+                <policyitem type="compatibility" name="FTL" path="third_party/freetype2/include/freetype-android.*" desc="" />
                 <policyitem type="compatibility" name="PublicDomainLicense" path="tools/sk_app/unix.*" desc="" />
                 <policyitem type="compatibility" name="Khronos" path="src/sksl.*" desc="" />
-                <policyitem type="compatibility" name="Google" path="gm.*" desc="" />
-                <policyitem type="compatibility" name="Google1" path="gm.*" desc="" />
-                <policyitem type="compatibility" name="Google2" path="gm.*" desc="" />
             </policy>
         </policylist>
         <filefilterlist>
             <filefilter name="defaultPolicyFilter"
                 desc="Filters for compatibility,license header policies">
-                <filteritem type="filepath" name="third_party/llvm-10.0/llvm/include/llvm/Support/LICENSE.TXT"
-                    desc="" />
-                <filteritem type="filepath" name="third_party/SPIRV-Tools/BUILD.bazel"
-                    desc="" />
-                <filteritem type="filepath" name="third_party/llvm-subzero/LICENSE.TXT"
-                    desc="" />
-                <filteritem type="filepath" name="third_party/subzero/LICENSE.TXT"
-                    desc="" />
-                <filteritem type="filepath" name="third_party/subzero/bloat/README.chromium"
-                    desc="" />
-                <filteritem type="filepath" name="third_party/llvm-10.0/Android.bp"
-                    desc="" />
-                <filteritem type="filepath" name="third_party/SPIRV-Headers/BUILD.bazel"
-                    desc="" />
-                <filteritem type="filepath" name="README.OpenSource"
-                    desc="" />
-                <filteritem type="filepath" name=".*chromium"
+                <filteritem type="filepath" name="tools/doxygen/mainpage/mainpage.dox"
                     desc="" />
                 <filteritem type="filepath" name="bin/compare"
                     desc="" />
-                <filteritem type="filepath" name="tools/doxygen/mainpage/mainpage.dox"
-                    desc="" />
-                <filteritem type="filepath" name="third_party/etc1/README.google"
+                <filteritem type="filepath" name="README.OpenSource"
                     desc="" />
                 </filefilter>
                 <filefilter name="defaultFilter">
                 <filteritem type="filepath" name="README.OpenSource"
                     desc="" />
+                <filteritem type="filepath" name=".*png"
+                    desc="" />
+                <filteritem type="filepath" name=".*jpg"
+                    desc="" />
+                <filteritem type="filepath" name="resources/images.*gif"
+                    desc="" />
+                <filteritem type="filepath" name="tools/skiaserve.*ico"
+                    desc="" />
+                <filteritem type="filepath" name="resources/empty_images.*ico"
+                    desc="" />
+                <filteritem type="filepath" name="modules/canvaskit/tests/assets.*webp"
+                    desc="" />
+                <filteritem type="filepath" name="resources/images.*webp"
+                    desc="" />
+                <filteritem type="filepath" name=".*resources.*"
+                    desc="" />
+                <filteritem type="filepath" name=".*modules/canvaskit/tests/assets.*"
+                    desc="" />
+                <filteritem type="filepath" name="platform_tools/android/bin/linux/perfhost"
+                    desc="" />
+                <filteritem type="filepath" name="platform_tools/android/bin/mac/perfhost"
+                    desc="" />
+                <filteritem type="filepath" name="site/docs/dev/tools/calendar.mskp"
+                    desc="" />
+                <filteritem type="filepath" name="experimental/wasm-skp-debugger/debugger/anim.mskp"
+                    desc="" />
+                <filteritem type="filepath" name="platform_tools/android/apps/gradle/wrapper/gradle-wrapper.jar"
+                    desc="" />
+                <filteritem type="filepath" name="experimental/wasm-skp-debugger/debugger/sample.skp"
+                    desc="" />
+                <filteritem type="filepath" name="infra/bots/tools/luci-go/win64/isolate.exe.sha1"
+                    desc="" />
+                <filteritem type="filepath" name="tools/perf-canvaskit-puppeteer/canvas_perf_assets/Roboto-Regular.ttf"
+                    desc="" />
+                <filteritem type="filepath" name="experimental/wasm-skp-debugger/fonts/NotoMono-Regular.ttf"
+                    desc="" />
+                <filteritem type="filepath" name="platform_tools/android/apps/skottie/perfetto_config.pb"
+                    desc="" />
+                <filteritem type="filepath" name="tools/perf-canvaskit-puppeteer/canvas_perf_assets/Roboto-Regular.woff2"
+                    desc="" />
+                <filteritem type="filepath" name="modules/canvaskit/fonts/NotoMono-Regular.ttf"
+                    desc="" />
+                <filteritem type="filepath" name="tools/perf-canvaskit-puppeteer/canvas_perf_assets/Roboto-Regular.woff"
+                    desc="" />
             </filefilter> 
         </filefilterlist>
         <licensematcherlist>
-            <licensematcher name="Google" desc="">
+            <licensematcher name="BSD-3-Clause" desc="">
                 <licensetext name="
-                 * Copyright 2015 Google Inc.
+                * * Use of this source code is governed by a BD-style license that can be
+                 * found in the LICENSE file.
             " desc="" />
-            </licensematcher> 
-            <licensematcher name="Google1" desc="">
+            </licensematcher>
+            <licensematcher name="BSD-3-Clause" desc="">
                 <licensetext name="
-                 * Copyright 2016 Google Inc.
+                Name: Skia
+                URL: https://skia.org/
+                Version: unknown
+                Security Critical: yes
+                License: BSD
             " desc="" />
-            </licensematcher> 
-             <licensematcher name="Google2" desc="">
+            </licensematcher>
+            <licensematcher name="Apache-2.0" desc="">
                 <licensetext name="
-                 * Copyright 2017 Google Inc.
+                URL: https://android.googlesource.com/platform/frameworks/native/+/master/opengl/
+                Version: 01cc538b
+                License: Apache 2.0
+                License File: LICENSE
+                Description: PKM file format (ETC1 data) support
+                Local Modifications: Created LICENSE file for compliance purposes. Not included in original
+                distribution.
+            " desc="" />
+            </licensematcher>
+             <licensematcher name="BSD-3-Clause" desc="">
+                <licensetext name="
+                Name: skcms
+                URL: https://skia.org/
+                Version: unknown
+                Security Critical: yes
+                License: BSD
             " desc="" />
             </licensematcher>
         </licensematcherlist>
