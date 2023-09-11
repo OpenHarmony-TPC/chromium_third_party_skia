@@ -1,7 +1,39 @@
 [
     {
         "Name": "chromium_third_party_skia",                   # 上游开源软件名全称
-        "License": "Khronos","PublicDomainLicense" ,"FTL","BSD-3-Clause","Apache-2.0"       # 上游开源软件中包含的许可证信息
+        "License": "Khronos"       # 上游开源软件中包含的许可证信息
+        "License File": "LICENSE"       # 许可证所在文件路径
+        "Version Number": "f85ab491eb97b54d0bfeac19fed27feb499b8912",
+        "Upstream URL": "https://skia.googlesource.com/skia.git@f85ab491eb97b54d0bfeac19fed27feb499b8912",   # 上游软件包发布地址
+        "Description": "skia是个2D向量图形处理函数库，包含字型、坐标转换，以及点阵图都有高效能且简洁的表现"           # 开源软件功能描述
+    },
+    {
+        "Name": "chromium_third_party_skia",                   # 上游开源软件名全称
+        "License":"PublicDomainLicense"     # 上游开源软件中包含的许可证信息
+        "License File": "LICENSE"       # 许可证所在文件路径
+        "Version Number": "f85ab491eb97b54d0bfeac19fed27feb499b8912",
+        "Upstream URL": "https://skia.googlesource.com/skia.git@f85ab491eb97b54d0bfeac19fed27feb499b8912",   # 上游软件包发布地址
+        "Description": "skia是个2D向量图形处理函数库，包含字型、坐标转换，以及点阵图都有高效能且简洁的表现"           # 开源软件功能描述
+    },
+    {
+        "Name": "chromium_third_party_skia",                   # 上游开源软件名全称
+        "License": "FTL"    # 上游开源软件中包含的许可证信息
+        "License File": "LICENSE"       # 许可证所在文件路径
+        "Version Number": "f85ab491eb97b54d0bfeac19fed27feb499b8912",
+        "Upstream URL": "https://skia.googlesource.com/skia.git@f85ab491eb97b54d0bfeac19fed27feb499b8912",   # 上游软件包发布地址
+        "Description": "skia是个2D向量图形处理函数库，包含字型、坐标转换，以及点阵图都有高效能且简洁的表现"           # 开源软件功能描述
+    },
+    {
+        "Name": "chromium_third_party_skia",                   # 上游开源软件名全称
+        "License": "BSD-3-Clause"       # 上游开源软件中包含的许可证信息
+        "License File": "LICENSE"       # 许可证所在文件路径
+        "Version Number": "f85ab491eb97b54d0bfeac19fed27feb499b8912",
+        "Upstream URL": "https://skia.googlesource.com/skia.git@f85ab491eb97b54d0bfeac19fed27feb499b8912",   # 上游软件包发布地址
+        "Description": "skia是个2D向量图形处理函数库，包含字型、坐标转换，以及点阵图都有高效能且简洁的表现"           # 开源软件功能描述
+    },
+    {
+        "Name": "chromium_third_party_skia",                   # 上游开源软件名全称
+        "License": "Apache-2.0"       # 上游开源软件中包含的许可证信息
         "License File": "LICENSE"       # 许可证所在文件路径
         "Version Number": "f85ab491eb97b54d0bfeac19fed27feb499b8912",
         "Upstream URL": "https://skia.googlesource.com/skia.git@f85ab491eb97b54d0bfeac19fed27feb499b8912",   # 上游软件包发布地址
