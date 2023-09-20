@@ -371,9 +371,9 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMakeFromFile(const char path[], int ttcIndex
 sk_sp<SkTypeface> SkFontMgr_OHOS::onLegacyMakeTypeface(const char familyName[], SkFontStyle style) const
 {
     SkTypeface* typeface = this->onMatchFamilyStyle(familyName, style);
-
-    std::string str = !familyName ? "" : familyName;
-    if (str == "") {
+    
+    // if familyName is not found, then try the default family
+    if (typeface == nullptr && familyName != nullptr) {
         typeface = this->onMatchFamilyStyle(nullptr, style);
     }
 
