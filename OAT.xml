@@ -113,10 +113,15 @@ used to filter file path.
                 * * Use of this source code is governed by a BD-style license that can be
                  * found in the LICENSE file.
             " desc="" />
-            </licensematcher>
-            <licensematcher name="BSD-3-Clause" desc="">
                 <licensetext name="
                 Name: Skia
+                URL: https://skia.org/
+                Version: unknown
+                Security Critical: yes
+                License: BSD
+            " desc="" />
+                <licensetext name="
+                Name: skcms
                 URL: https://skia.org/
                 Version: unknown
                 Security Critical: yes
@@ -132,15 +137,6 @@ used to filter file path.
                 Description: PKM file format (ETC1 data) support
                 Local Modifications: Created LICENSE file for compliance purposes. Not included in original
                 distribution.
-            " desc="" />
-            </licensematcher>
-             <licensematcher name="BSD-3-Clause" desc="">
-                <licensetext name="
-                Name: skcms
-                URL: https://skia.org/
-                Version: unknown
-                Security Critical: yes
-                License: BSD
             " desc="" />
             </licensematcher>
         </licensematcherlist>
