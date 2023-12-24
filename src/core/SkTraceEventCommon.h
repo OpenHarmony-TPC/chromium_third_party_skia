@@ -424,19 +424,36 @@ namespace skia_private {
 // with 0, 1 or 2 associated arguments. If the category is not enabled, then
 // this does nothing.
 #define TRACE_EVENT0(category_group, name) \
-  (void)(category_group);                  \
-  BYTRACE_SCOPED(name);
+  BYTRACE_SCOPED_INIT();                   \
+  do {                                     \
+    if (IsBytraceEnable()) {               \
+      (void) (category_group);             \
+      BYTRACE_SCOPED_TRACE_EVENT(name);    \
+    }                                      \
+  } while (0);
 
 #define TRACE_EVENT0_ALWAYS(category_group, name) \
   TRACE_EVENT0(category_group, name)
 
-#define TRACE_EVENT1(category_group, name, arg1_name, arg1_val) \
-  TRACE_EVENT0(category_group, GetStringWithArgs(name, arg1_name, arg1_val));
+#define TRACE_EVENT1(category_group, name, arg1_name, arg1_val)                 \
+  BYTRACE_SCOPED_INIT();                                                        \
+  do {                                                                          \
+    if (IsBytraceEnable()) {                                                    \
+      (void) (category_group);                                                  \
+      BYTRACE_SCOPED_TRACE_EVENT(GetStringWithArgs(name, arg1_name, arg1_val)); \
+    }                                                                           \
+  } while (0);
 
-#define TRACE_EVENT2(category_group, name, arg1_name, arg1_val, arg2_name,  \
-                     arg2_val)                                              \
-  TRACE_EVENT0(category_group, GetStringWithArgs(name, arg1_name, arg1_val, \
-                                                 arg2_name, arg2_val));
+#define TRACE_EVENT2(category_group, name, arg1_name, arg1_val, arg2_name,      \
+                     arg2_val)                                                  \
+  BYTRACE_SCOPED_INIT();                                                        \
+  do {                                                                          \
+    if (IsBytraceEnable()) {                                                    \
+      (void) (category_group);                                                  \
+      BYTRACE_SCOPED_TRACE_EVENT(GetStringWithArgs(name, arg1_name, arg1_val,   \
+                                                   arg2_name, arg2_val));       \
+    }                                                                           \
+  } while (0);
 
 // Records a single event called "name" immediately, with 0, 1 or 2 associated
 // arguments. If the category is not enabled, then this does nothing.
