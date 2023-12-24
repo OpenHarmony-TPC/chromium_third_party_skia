@@ -435,7 +435,7 @@ namespace skia_private {
 #define TRACE_EVENT0_ALWAYS(category_group, name) \
   TRACE_EVENT0(category_group, name)
 
-#define TRACE_EVENT1(category_group, name, arg1_name, arg1_val) \
+#define TRACE_EVENT1(category_group, name, arg1_name, arg1_val)                 \
   BYTRACE_SCOPED_INIT();                                                        \
   do {                                                                          \
     if (IsBytraceEnable()) {                                                    \
@@ -444,8 +444,8 @@ namespace skia_private {
     }                                                                           \
   } while (0);
 
-#define TRACE_EVENT2(category_group, name, arg1_name, arg1_val, arg2_name,  \
-                     arg2_val)                                              \
+#define TRACE_EVENT2(category_group, name, arg1_name, arg1_val, arg2_name,      \
+                     arg2_val)                                                  \
   BYTRACE_SCOPED_INIT();                                                        \
   do {                                                                          \
     if (IsBytraceEnable()) {                                                    \
