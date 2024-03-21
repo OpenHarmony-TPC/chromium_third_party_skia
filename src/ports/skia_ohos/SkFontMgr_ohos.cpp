@@ -378,30 +378,27 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::makeTypeface(std::unique_ptr<SkStreamAsset> st
 {
     FontInfo fontInfo;
     int ttcIndex = args.getCollectionIndex();
-    int axisCount = args.getVariationDesignPosition().coordinateCount;
 
     if (path) {
         fontInfo.fname.set(path);
     }
-    if (axisCount == 0) {
-        if (!fontScanner.scanFont(stream.get(), ttcIndex, &fontInfo.familyName, &fontInfo.style,
-            &fontInfo.isFixedWidth, nullptr)) {
-            LOGE("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
-            return nullptr;
-        }
-    } else {
-        AxisDefinitions axisDef;
-        if (!fontScanner.scanFont(stream.get(), ttcIndex, &fontInfo.familyName, &fontInfo.style,
-            &fontInfo.isFixedWidth, &axisDef)) {
-            LOGE("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
-            return nullptr;
-        }
-        if (axisDef.size() > 0) {
-            SkFixed axis[axisCount];
-            fontScanner.computeAxisValues(axisDef, args.getVariationDesignPosition(),
-                axis, fontInfo.familyName);
-            fontInfo.setAxisSet(axisCount, axis, axisDef.data());
-        }
+
+    AxisDefinitions axisDef;
+    if (!fontScanner.scanFont(stream.get(),
+                              ttcIndex,
+                              &fontInfo.familyName,
+                              &fontInfo.style,
+                              &fontInfo.isFixedWidth,
+                              &axisDef)) {
+        LOGE("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
+        return nullptr;
+    }
+    int axisDefCount = axisDef.size();
+    if (axisDefCount > 0) {
+        SkFixed axis[axisDefCount];
+        fontScanner.computeAxisValues(
+                axisDef, args.getVariationDesignPosition(), axis, fontInfo.familyName);
+        fontInfo.setAxisSet(axisDefCount, axis, axisDef.data());
     }
 
     fontInfo.stream = std::move(stream);

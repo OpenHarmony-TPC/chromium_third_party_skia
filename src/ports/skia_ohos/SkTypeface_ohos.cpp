@@ -114,23 +114,16 @@ void SkTypeface_OHOS::onGetFamilyName(SkString* familyName) const
  */
 sk_sp<SkTypeface> SkTypeface_OHOS::onMakeClone(const SkFontArguments& args) const
 {
+    std::unique_ptr<SkFontData> data = this->cloneFontData(args);
+    if (!data) {
+        return nullptr;
+    }
+
     FontInfo info(*(fontInfo.get()));
     info.index = args.getCollectionIndex();
-    unsigned int count = args.getVariationDesignPosition().coordinateCount;
-    if (count > 0 && count == fontInfo->axisSet.range.size()) {
-        SkFontArguments::VariationPosition position = args.getVariationDesignPosition();
-        SkTypeface_FreeType::Scanner::AxisDefinitions axisDefs;
-        for (unsigned int i = 0; i < count; i++) {
-            axisDefs.push_back(fontInfo->axisSet.range[i]);
-        }
-        SkFixed axisValues[count];
-        memset(axisValues, 0, sizeof(axisValues));
-        SkTypeface_FreeType::Scanner::computeAxisValues(axisDefs, position,
-            axisValues, fontInfo->familyName);
-        info.axisSet.axis.clear();
-        for (unsigned int i = 0; i < count; i++) {
-            info.axisSet.axis.emplace_back(axisValues[i]);
-        }
+    info.axisSet.axis.clear();
+    for (unsigned int i = 0; i < data->getAxisCount(); ++i) {
+        info.axisSet.axis.push_back(data->getAxis()[i]);
     }
     return sk_make_sp<SkTypeface_OHOS>(specifiedName, info);
 }
