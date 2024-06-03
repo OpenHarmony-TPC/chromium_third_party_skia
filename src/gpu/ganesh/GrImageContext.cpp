@@ -26,6 +26,9 @@ void GrImageContext::abandonContext() {
 }
 
 bool GrImageContext::abandoned() {
+    if (fThreadSafeProxy == nullptr) {
+        return true;
+    }
     return fThreadSafeProxy->priv().abandoned();
 }
 
