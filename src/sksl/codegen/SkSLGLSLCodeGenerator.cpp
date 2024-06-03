@@ -1704,6 +1704,9 @@ void GLSLCodeGenerator::writeInputVars() {
 
 bool GLSLCodeGenerator::generateCode() {
     this->writeHeader();
+#ifdef OHOS_SKIA_CACHE
+    this->writeLine("// GL_EXTENSION_SKIA_CACHE");
+#endif
     OutputStream* rawOut = fOut;
     StringStream body;
     fOut = &body;
