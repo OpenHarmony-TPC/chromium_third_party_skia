@@ -14,6 +14,7 @@
 #include "src/gpu/ganesh/GrImageContextPriv.h"
 #include "src/gpu/ganesh/GrProxyProvider.h"
 #include "src/gpu/ganesh/effects/GrSkSLFP.h"
+#include "src/gpu/graphite/Log.h"
 
 GrImageContext::GrImageContext(sk_sp<GrContextThreadSafeProxy> proxy)
             : INHERITED(std::move(proxy)) {
@@ -27,6 +28,7 @@ void GrImageContext::abandonContext() {
 
 bool GrImageContext::abandoned() {
     if (fThreadSafeProxy == nullptr) {
+        SKGPU_LOG_E("fGrImageContext ThreadSafeProxy is null");
         return true;
     }
     return fThreadSafeProxy->priv().abandoned();
