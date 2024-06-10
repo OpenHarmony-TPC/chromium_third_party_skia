@@ -423,13 +423,12 @@ namespace skia_private {
 // Records a pair of begin and end events called "name" for the current scope,
 // with 0, 1 or 2 associated arguments. If the category is not enabled, then
 // this does nothing.
-#define TRACE_EVENT0(category_group, name) \
-  BYTRACE_SCOPED_INIT();                   \
-  do {                                     \
-    if (IsBytraceEnable()) {               \
-      (void) (category_group);             \
-      BYTRACE_SCOPED_TRACE_EVENT(name);    \
-    }                                      \
+#define TRACE_EVENT0(category_group, name)  \
+  BYTRACE_SCOPED_INIT();                    \
+  do {                                      \
+    if (IsCategoryEnable(category_group)) { \
+      BYTRACE_SCOPED_TRACE_EVENT(name);     \
+    }                                       \
   } while (0);
 
 #define TRACE_EVENT0_ALWAYS(category_group, name) \
@@ -438,8 +437,7 @@ namespace skia_private {
 #define TRACE_EVENT1(category_group, name, arg1_name, arg1_val)                 \
   BYTRACE_SCOPED_INIT();                                                        \
   do {                                                                          \
-    if (IsBytraceEnable()) {                                                    \
-      (void) (category_group);                                                  \
+    if (IsCategoryEnable(category_group)) {                                     \
       BYTRACE_SCOPED_TRACE_EVENT(GetStringWithArgs(name, arg1_name, arg1_val)); \
     }                                                                           \
   } while (0);
@@ -448,8 +446,7 @@ namespace skia_private {
                      arg2_val)                                                  \
   BYTRACE_SCOPED_INIT();                                                        \
   do {                                                                          \
-    if (IsBytraceEnable()) {                                                    \
-      (void) (category_group);                                                  \
+    if (IsCategoryEnable(category_group)) {                                     \
       BYTRACE_SCOPED_TRACE_EVENT(GetStringWithArgs(name, arg1_name, arg1_val,   \
                                                    arg2_name, arg2_val));       \
     }                                                                           \
