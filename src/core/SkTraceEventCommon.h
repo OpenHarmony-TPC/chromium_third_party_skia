@@ -424,7 +424,7 @@ namespace skia_private {
 // with 0, 1 or 2 associated arguments. If the category is not enabled, then
 // this does nothing.
 #define TRACE_EVENT0(category_group, name)  \
-  BYTRACE_SCOPED_INIT();                    \
+  BYTRACE_SCOPED_INIT(category_group);      \
   do {                                      \
     if (IsCategoryEnable(category_group)) { \
       BYTRACE_SCOPED_TRACE_EVENT(name);     \
@@ -435,7 +435,7 @@ namespace skia_private {
   TRACE_EVENT0(category_group, name)
 
 #define TRACE_EVENT1(category_group, name, arg1_name, arg1_val)                 \
-  BYTRACE_SCOPED_INIT();                                                        \
+  BYTRACE_SCOPED_INIT(category_group);                                          \
   do {                                                                          \
     if (IsCategoryEnable(category_group)) {                                     \
       BYTRACE_SCOPED_TRACE_EVENT(GetStringWithArgs(name, arg1_name, arg1_val)); \
@@ -444,7 +444,7 @@ namespace skia_private {
 
 #define TRACE_EVENT2(category_group, name, arg1_name, arg1_val, arg2_name,      \
                      arg2_val)                                                  \
-  BYTRACE_SCOPED_INIT();                                                        \
+  BYTRACE_SCOPED_INIT(category_group);                                          \
   do {                                                                          \
     if (IsCategoryEnable(category_group)) {                                     \
       BYTRACE_SCOPED_TRACE_EVENT(GetStringWithArgs(name, arg1_name, arg1_val,   \
