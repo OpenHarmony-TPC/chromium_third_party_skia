@@ -9,6 +9,7 @@
 
 #include "include/core/SkRegion.h"
 #include "src/core/SkMatrixPriv.h"
+#include "src/base/SkSafeMath.h"
 #include "src/gpu/BufferWriter.h"
 #include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrDefaultGeoProcFactory.h"
@@ -116,8 +117,14 @@ private:
 
         int numRegions = fRegions.size();
         int numRects = 0;
+
+        SkSafeMath safeMath;
         for (int i = 0; i < numRegions; i++) {
-            numRects += fRegions[i].fRegion.computeRegionComplexity();
+            numRects = safeMath.addInt(numRects, fRegions[i].fRegion.computeRegionComplexity());
+        }
+        if (!safeMath) {
+            // This is a nonsensical draw, so we can just drop it.
+            return;
         }
 
         if (!numRects) {
