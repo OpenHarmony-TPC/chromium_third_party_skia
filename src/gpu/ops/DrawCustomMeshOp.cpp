@@ -785,7 +785,11 @@ GrOp::CombineResult CustomMeshOp::onCombineIfPossible(GrOp* t, SkArenaAlloc*, co
     if (SkToBool(fIndexCount) != SkToBool(that->fIndexCount)) {
         return CombineResult::kCannotCombine;
     }
-    if (SkToBool(fIndexCount) && fVertexCount > UINT16_MAX - that->fVertexCount) {
+    if (SkToBool(fIndexCount) &&
+         // Index count would overflow
+        (fIndexCount > INT32_MAX - that->fIndexCount ||
+         // *or* combined vertex count would not be referenceable by uint16 indices
+         fVertexCount > SkToInt(UINT16_MAX) - that->fVertexCount)) {
         return CombineResult::kCannotCombine;
     }
 
