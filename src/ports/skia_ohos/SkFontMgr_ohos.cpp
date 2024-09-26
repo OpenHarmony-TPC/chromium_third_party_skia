@@ -96,6 +96,20 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyle(const char familyName[],
     if (familyName) {
         styleIndex = fontConfig->getStyleIndex(familyName, isFallback);
     }
+
+#ifdef OHOS_THEME_FONT
+    auto* themeFontTypeface = fontConfig->getThemeFontTypeface();
+    if (styleIndex >= 0 && !isFallback && themeFontTypeface) {
+        return sk_ref_sp(themeFontTypeface);
+    }
+    if (styleIndex < 0 && themeFontTypeface) {
+        const FontInfo* fontInfo = themeFontTypeface->getFontInfo();
+        if (fontInfo && SkString(familyName) == fontInfo->familyName) {
+            return sk_ref_sp(themeFontTypeface);
+        }
+    }
+#endif
+
     return sk_ref_sp(fontConfig->getTypeface(styleIndex, style, isFallback));
 }
 
@@ -119,6 +133,14 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyleCharacter(const char familyN
     if (fontConfig == nullptr) {
         return nullptr;
     }
+
+#ifdef OHOS_THEME_FONT
+    auto* themeFontTypeface = fontConfig->getThemeFontTypeface();
+    if (themeFontTypeface && themeFontTypeface->unicharToGlyph(character) != 0) {
+        return sk_ref_sp(themeFontTypeface);
+    }
+#endif
+
     const FallbackForMap& fallbackForMap = fontConfig->getFallbackForMap();
     const FallbackSet& fallbackSet = fontConfig->getFallbackSet();
     SkString defaultFamily("");
@@ -449,3 +471,11 @@ sk_sp<SkFontMgr> SkFontMgr_New_OHOS(const char* fname)
 {
     return sk_make_sp<SkFontMgr_OHOS>(fname);
 }
+
+#ifdef OHOS_THEME_FONT
+void SkFontMgr_OHOS::onInvalidateThemeFont(int fd) {
+    if (fontConfig) {
+        fontConfig->InvalidateThemeFont(fontScanner, fd);
+    }
+}
+#endif

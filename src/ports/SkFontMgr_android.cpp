@@ -435,6 +435,9 @@ protected:
         return sk_sp<SkTypeface>(fDefaultStyleSet->matchStyle(style));
     }
 
+#ifdef OHOS_THEME_FONT
+    void onInvalidateThemeFont(int fd) override {}
+#endif
 
 private:
 

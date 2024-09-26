@@ -78,6 +78,10 @@ protected:
     sk_sp<SkTypeface> onLegacyMakeTypeface(const char [], SkFontStyle) const override {
         return nullptr;
     }
+
+#ifdef OHOS_THEME_FONT
+    void onInvalidateThemeFont(int fd) override {}
+#endif
 };
 
 static sk_sp<SkFontStyleSet> emptyOnNull(sk_sp<SkFontStyleSet>&& fsset) {
@@ -147,6 +151,10 @@ sk_sp<SkTypeface> SkFontMgr::makeFromFile(const char path[], int ttcIndex) const
 sk_sp<SkTypeface> SkFontMgr::legacyMakeTypeface(const char familyName[], SkFontStyle style) const {
     return this->onLegacyMakeTypeface(familyName, style);
 }
+
+#ifdef OHOS_THEME_FONT
+void SkFontMgr::InvalidateThemeFont(int fd) { this->onInvalidateThemeFont(fd); }
+#endif
 
 sk_sp<SkFontMgr> SkFontMgr::RefEmpty() {
     static SkEmptyFontMgr singleton;
