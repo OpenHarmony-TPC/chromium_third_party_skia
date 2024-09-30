@@ -114,18 +114,29 @@ void SkTypeface_OHOS::onGetFamilyName(SkString* familyName) const
  */
 sk_sp<SkTypeface> SkTypeface_OHOS::onMakeClone(const SkFontArguments& args) const
 {
-    std::unique_ptr<SkFontData> data = this->cloneFontData(args);
-    if (!data) {
-        return nullptr;
-    }
+    int ttcIndex = args.getCollectionIndex();
+    auto stream = openStream(&ttcIndex);
 
     FontInfo info(*(fontInfo.get()));
-    info.index = args.getCollectionIndex();
-    info.axisSet.axis.clear();
-    for (unsigned int i = 0; i < data->getAxisCount(); ++i) {
-        info.axisSet.axis.push_back(data->getAxis()[i]);
+    unsigned int axisCount = args.getVariationDesignPosition().coordinateCount;
+    if (axisCount > 0) {
+        SkTypeface_FreeType::Scanner fontScanner;
+        SkTypeface_FreeType::Scanner::AxisDefinitions axisDefs;
+        if (!fontScanner.scanFont(stream.get(), ttcIndex, &info.familyName, &info.style,
+            &info.isFixedWidth, &axisDefs)) {
+            return nullptr;
+        }
+        if (axisDefs.size() > 0) {
+            SkFixed axis[axisDefs.size()];
+            fontScanner.computeAxisValues(axisDefs, args.getVariationDesignPosition(),
+                axis, info.familyName);
+            info.setAxisSet(axisCount, axis, axisDefs.data());
+            info.style = info.computeFontStyle();
+            return sk_make_sp<SkTypeface_OHOS>(specifiedName, info);
+        }
     }
-    return sk_make_sp<SkTypeface_OHOS>(specifiedName, info);
+
+    return sk_ref_sp(this);
 }
 
 /*! To get the font information of the typeface
