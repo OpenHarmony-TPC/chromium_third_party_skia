@@ -7,6 +7,7 @@
 #include "include/private/base/SkTArray.h"
 #include "src/core/SkFontDescriptor.h"
 #include "src/ports/SkFontHost_FreeType_common.h"
+#include "base/logging.h"
 
 /*! Constructor
  * \param familyName the specified family name for the typeface
@@ -64,6 +65,8 @@ std::unique_ptr<SkFontData> SkTypeface_OHOS::onMakeFontData() const
     if (fontInfo->stream.get() == nullptr) {
         return nullptr;
     }
+    LOG(DEBUG) << "Current font file is : " << fontInfo->fname.c_str();
+    LOG(DEBUG) << "Current font family name is : " << fontInfo->familyName.c_str();                   
     return std::make_unique<SkFontData>(fontInfo->stream->duplicate(),
                                         fontInfo->index,
                                         0,
