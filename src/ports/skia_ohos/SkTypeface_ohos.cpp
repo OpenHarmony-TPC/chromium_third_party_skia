@@ -65,8 +65,8 @@ std::unique_ptr<SkFontData> SkTypeface_OHOS::onMakeFontData() const
     if (fontInfo->stream.get() == nullptr) {
         return nullptr;
     }
-    LOG(DEBUG) << "Current font file is : " << fontInfo->fname.c_str();
-    LOG(DEBUG) << "Current font family name is : " << fontInfo->familyName.c_str();                   
+    LOG(INFO) << "Current font file is : " << fontInfo->fname.c_str()
+              << "Current family name is : " << fontInfo->familyName.c_str();
     return std::make_unique<SkFontData>(fontInfo->stream->duplicate(),
                                         fontInfo->index,
                                         0,
