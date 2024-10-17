@@ -122,7 +122,6 @@ private:
         for (int i = 0; i < numRegions; i++) {
             numRects = safeMath.addInt(numRects, fRegions[i].fRegion.computeRegionComplexity());
         }
-
         if (!numRects || !safeMath) {
             return;
         }
