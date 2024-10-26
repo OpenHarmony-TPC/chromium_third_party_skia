@@ -322,7 +322,7 @@ char* FontConfig_OHOS::getFileData(const char* fname, int& size)
         fclose(fp);
         return nullptr;
     }
-    memset(data, 0, size);
+    (void) memset_s(data, size, 0, size);
     (void) fread(data, size, 1, fp);
     fclose(fp);
     return (char*)data;
@@ -1037,15 +1037,12 @@ int FontConfig_OHOS::scanFonts(const SkTypeface_FreeType::Scanner& fontScanner)
                 strncmp(fname + len - suffixLen, ".otc", suffixLen))) {
                 continue;
             }
-            len += (fontDirSet[i].size() + 2); // 2 more characters for '/' and '\0'
-            char fullname[len];
-            memset(fullname, 0, len);
-            strcpy(fullname, fontDirSet[i].c_str());
-            if (fontDirSet[i][fontDirSet[i].size() - 1] != '/') {
-                strcat(fullname, "/");
+            SkString fullname = fontDirSet[i];
+            if (fullname[fullname.size()-1] != '/') {
+                fullname.append("/");
             }
-            strcat(fullname, fname);
-            loadFont(fontScanner, fullname);
+            fullname.append(fname);
+            loadFont(fontScanner, fullname.c_str());
         }
         closedir(dir);
     }
