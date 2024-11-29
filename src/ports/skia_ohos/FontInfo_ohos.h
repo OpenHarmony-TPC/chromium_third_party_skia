@@ -10,6 +10,7 @@
 #include "include/private/base/SkFixed.h"
 #include "src/core/SkFontDescriptor.h"
 #include "src/ports/SkFontHost_FreeType_common.h"
+#include "third_party/bounds_checking_function/include/securec.h"
 
 /*!
  * \brief To manage the font information
@@ -22,7 +23,7 @@ public:
     FontInfo() : familyName(""), fname(""), index(0),
         style(SkFontStyle::Normal()), isFixedWidth(false), stream(nullptr)
     {
-        memset(&axisSet, 0, sizeof(AxisSet));
+        (void) memset_s(&axisSet, sizeof(axisSet), 0, sizeof(AxisSet));
     }
     /*! Copy Constructor
      * \param font an object of FontInfo
@@ -63,7 +64,7 @@ public:
         if (fname) {
             this->fname.set(fname);
         }
-        memset(&axisSet, 0, sizeof(axisSet));
+        (void) memset_s(&axisSet, sizeof(axisSet), 0, sizeof(axisSet));
     }
 
     /*! Destructor
