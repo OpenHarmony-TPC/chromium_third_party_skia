@@ -113,6 +113,11 @@ public:
     SkTypeface_OHOS* getTypeface(int styleIndex, const SkFontStyle& style,
         bool isFallback = false) const;
 
+#ifdef OHOS_THEME_FONT
+    void InvalidateThemeFont(const SkTypeface_FreeType::Scanner& fontScanner, int fd);
+    SkTypeface_OHOS* getThemeFontTypeface() const;
+#endif
+
 #if ENABLE_DEBUG
     void dumpFont(const FontInfo& font) const;
     void dumpGeneric() const;
@@ -184,6 +189,9 @@ private:
     FallbackForMap    fallbackForMap; // a hash table to save the fallbackFor pairs
     GenericFamilySet genericFamilySet; // the font style set list of generic family
     FallbackSet fallbackSet; // the font style set list of fallback family
+#ifdef OHOS_THEME_FONT
+    sk_sp<SkTypeface_OHOS> themeFontTypeface;
+#endif
 
     NamesMap genericNames; // a map to store the index of a family for generic family
     NamesMap fallbackNames; // a map to store the index of a family for fallback family

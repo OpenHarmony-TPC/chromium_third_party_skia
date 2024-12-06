@@ -95,7 +95,26 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyle(const char familyName[],
     int styleIndex = 0;
     if (familyName) {
         styleIndex = fontConfig->getStyleIndex(familyName, isFallback);
+        if (styleIndex < 0 && SkString(familyName) == SkString("sans-serif")) {
+            // TODO: remove this |if| when fontconfig.json support sans-serif.
+            SkString sansFamilyName("HarmonyOS-Sans");
+            styleIndex = fontConfig->getStyleIndex(sansFamilyName.c_str(), isFallback);
+        }
     }
+
+#ifdef OHOS_THEME_FONT
+    auto* themeFontTypeface = fontConfig->getThemeFontTypeface();
+    if (styleIndex >= 0 && !isFallback && themeFontTypeface) {
+        return sk_ref_sp(themeFontTypeface);
+    }
+    if (styleIndex < 0 && themeFontTypeface) {
+        const FontInfo* fontInfo = themeFontTypeface->getFontInfo();
+        if (fontInfo && SkString(familyName) == fontInfo->familyName) {
+            return sk_ref_sp(themeFontTypeface);
+        }
+    }
+#endif
+
     return sk_ref_sp(fontConfig->getTypeface(styleIndex, style, isFallback));
 }
 
@@ -119,6 +138,14 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyleCharacter(const char familyN
     if (fontConfig == nullptr) {
         return nullptr;
     }
+
+#ifdef OHOS_THEME_FONT
+    auto* themeFontTypeface = fontConfig->getThemeFontTypeface();
+    if (themeFontTypeface && themeFontTypeface->unicharToGlyph(character) != 0) {
+        return sk_ref_sp(themeFontTypeface);
+    }
+#endif
+
     const FallbackForMap& fallbackForMap = fontConfig->getFallbackForMap();
     const FallbackSet& fallbackSet = fontConfig->getFallbackSet();
     SkString defaultFamily("");
@@ -139,6 +166,7 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyleCharacter(const char familyN
             FontConfig_OHOS::errToString(ERROR_FAMILY_NOT_FOUND), defaultFamily.c_str());
         return nullptr;
     }
+
     while (true) {
         if (bcp47Count > 0) {
             SkTypeface* retTp = findTypeface(*item, style, bcp47, bcp47Count, character);
@@ -440,6 +468,14 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::makeTypeface(SkFontData* fontData) const
     fontInfo.index = ttcIndex;
     return sk_make_sp<SkTypeface_OHOS>(fontInfo);
 }
+
+#ifdef OHOS_THEME_FONT
+void SkFontMgr_OHOS::onInvalidateThemeFont(int fd) {
+    if (fontConfig) {
+        fontConfig->InvalidateThemeFont(fontScanner, fd);
+    }
+}
+#endif
 
 /*! To create SkFontMgr object for Harmony platform
  * \param fname the full name of system font configuration documents

@@ -1251,3 +1251,28 @@ int FontConfig_OHOS::logErrInfo(int err, const char* key, Json::ValueType expect
     }
     return err;
 }
+
+#ifdef OHOS_THEME_FONT
+void FontConfig_OHOS::InvalidateThemeFont(const SkTypeface_FreeType::Scanner& fontScanner, int fd) {
+    sk_sp<SkData> data(SkData::MakeFromFD(fd));
+    std::unique_ptr<SkStreamAsset> stream =
+            (data ? std::make_unique<SkMemoryStream>(std::move(data)) : nullptr);
+
+    FontInfo font;
+    int count = 0;
+    if (stream == nullptr || !fontScanner.recognizedFont(stream.get(), &count) ||
+        !fontScanner.scanFont(
+                stream.get(), 0, &font.familyName, &font.style, &font.isFixedWidth, nullptr)) {
+        themeFontTypeface.reset();
+        LOGE("[themefont] InvalidateThemeFont failed, stream(%p) count(%d).\n",
+             stream.get(),
+             count);
+        return;
+    }
+
+    font.stream = std::move(stream);
+    themeFontTypeface = sk_make_sp<SkTypeface_OHOS>(SkString(), font);
+}
+
+SkTypeface_OHOS* FontConfig_OHOS::getThemeFontTypeface() const { return themeFontTypeface.get(); }
+#endif

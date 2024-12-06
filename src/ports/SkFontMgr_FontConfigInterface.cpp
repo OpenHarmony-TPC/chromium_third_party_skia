@@ -281,6 +281,10 @@ protected:
 
         return face;
     }
+
+#ifdef OHOS_THEME_FONT
+    void onInvalidateThemeFont(int fd) override {}
+#endif
 };
 
 SK_API sk_sp<SkFontMgr> SkFontMgr_New_FCI(sk_sp<SkFontConfigInterface> fci) {
