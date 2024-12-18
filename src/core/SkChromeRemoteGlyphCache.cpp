@@ -665,17 +665,6 @@ void SkStrikeServerImpl::checkForDeletedEntries() {
 sk_sp<RemoteStrike> SkStrikeServerImpl::getOrCreateCache(const SkStrikeSpec& strikeSpec) {
     // In cases where tracing is turned off, make sure not to get an unused function warning.
     // Lambdaize the function.
-    TRACE_EVENT1("skia", "RecForDesc", "rec",
-                 TRACE_STR_COPY(
-                         [&strikeSpec](){
-                             auto ptr =
-                                 strikeSpec.descriptor().findEntry(kRec_SkDescriptorTag, nullptr);
-                             SkScalerContextRec rec;
-                             std::memcpy((void*)&rec, ptr, sizeof(rec));
-                             return rec.dump();
-                         }().c_str()
-                 )
-    );
 
     if (auto it = fDescToRemoteStrike.find(&strikeSpec.descriptor());
         it != fDescToRemoteStrike.end())
