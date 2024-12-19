@@ -2382,6 +2382,10 @@ void SkCanvas::onDrawGlyphRunList(const sktext::GlyphRunList& glyphRunList, cons
 #if (defined(SK_GANESH) || defined(SK_GRAPHITE))
 sk_sp<Slug> SkCanvas::convertBlobToSlug(
         const SkTextBlob& blob, SkPoint origin, const SkPaint& paint) {
+#if defined(IS_OHOS)
+#else
+    TRACE_EVENT0("skia", TRACE_FUNC);
+#endif
     auto glyphRunList = fScratchGlyphRunBuilder->blobToGlyphRunList(blob, origin);
     return this->onConvertGlyphRunListToSlug(glyphRunList, paint);
 }
@@ -2498,6 +2502,10 @@ bool gSkBlobAsSlugTesting = false;
 
 void SkCanvas::drawTextBlob(const SkTextBlob* blob, SkScalar x, SkScalar y,
                             const SkPaint& paint) {
+#if defined(IS_OHOS)
+#else
+    TRACE_EVENT0("skia", TRACE_FUNC);
+#endif
     RETURN_ON_NULL(blob);
     RETURN_ON_FALSE(blob->bounds().makeOffset(x, y).isFinite());
 
