@@ -125,13 +125,6 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyleCharacter(const char familyN
     SkString key = defaultFamily;
     FallbackSetPos* item = nullptr;
     if (familyName == nullptr) {
-        SkString sansFamilyName("HarmonyOS Sans SC");
-        bool isFallback = false;
-        int styleIndex = fontConfig->getStyleIndex(sansFamilyName.c_str(), isFallback);
-        SkTypeface* retTp = fontConfig->getTypeface(styleIndex, style, isFallback);
-        if (retTp && retTp->unicharToGlyph(character) != 0) {
-            return sk_ref_sp(retTp);
-        }
         item = fallbackForMap.find(defaultFamily);
     } else {
         item = fallbackForMap.find(SkString(familyName));
