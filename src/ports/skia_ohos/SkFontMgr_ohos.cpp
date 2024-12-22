@@ -204,7 +204,7 @@ SkTypeface* SkFontMgr_OHOS::findTypeface(const FallbackSetPos& fallbackItem, con
         }
         tps[ret] = i;
     }
-    for (character >= 0x2018 && character <= 0x201D) {
+    if (character >= 0x2018 && character <= 0x201D) {
         for (int i = 0; i <= bcp47Count - 1; i++) {
             if (tps[i] == -1) {
                 continue;
