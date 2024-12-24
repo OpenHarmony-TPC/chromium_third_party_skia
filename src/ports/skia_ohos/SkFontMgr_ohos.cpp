@@ -232,6 +232,18 @@ SkTypeface* SkFontMgr_OHOS::findTypeface(const FallbackSetPos& fallbackItem, con
         }
         tps[ret] = i;
     }
+    if (character >= 0x2018 && character <= 0x201D) {
+        for (int i = 0; i <= bcp47Count - 1; i++) {
+            if (tps[i] == -1) {
+                continue;
+            }
+            const TypefaceSet& tpSet = *(fallbackSet[tps[i]]->typefaceSet.get());
+            if (tpSet.size() > 0 && tpSet[0]->unicharToGlyph(character) != 0) {
+                sk_sp<SkTypeface> typeface = FontConfig_OHOS::matchFontStyle(tpSet, style);
+                return SkSafeRef(typeface.get());
+            }
+        }
+    }
     // match typeface in families
     for (int i = bcp47Count - 1; i >= 0; i--) {
         if (tps[i] == -1) {
