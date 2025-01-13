@@ -15,8 +15,8 @@
 #include "src/codec/SkFrameHolder.h"
 #include "src/codec/SkSwizzler.h"
 
-#if __has_include("HeifDecoderAPI.h")
-    #include "HeifDecoderAPI.h"
+#if __has_include("SkHeifDecoderAPI.h")
+    #include "SkHeifDecoderAPI.h"
 #else
     #include "src/codec/SkStubHeifDecoderAPI.h"
 #endif
@@ -65,7 +65,7 @@ private:
      * Creates an instance of the decoder
      * Called only by NewFromStream
      */
-    SkHeifCodec(SkEncodedInfo&&, HeifDecoder*, SkEncodedOrigin, bool animation,
+    SkHeifCodec(SkEncodedInfo&&, HeifDecoder*, HeifFrameInfo, SkEncodedOrigin, bool animation,
             SkEncodedImageFormat);
 
     void initializeSwizzler(const SkImageInfo& dstInfo, const Options& options);
