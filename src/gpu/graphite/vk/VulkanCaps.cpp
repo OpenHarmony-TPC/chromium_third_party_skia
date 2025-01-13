@@ -54,7 +54,7 @@ void VulkanCaps::init(const skgpu::VulkanInterface* vkInterface,
 
     // Enable the use of memoryless attachments for tiler GPUs (ARM Mali and Qualcomm Adreno).
     if (physDevProperties.vendorID == kARM_VkVendor ||
-        physDevProperties.vendorID == kQualcomm_VkVendor) {
+        physDevProperties.vendorID == kQualcomm_VkVendor || kHisi_VkVendor == physDevProperties.vendorID) {
         fSupportsMemorylessAttachments = true;
     }
 

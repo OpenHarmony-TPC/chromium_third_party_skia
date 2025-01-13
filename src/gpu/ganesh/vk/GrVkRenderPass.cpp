@@ -154,6 +154,7 @@ GrVkRenderPass* GrVkRenderPass::Create(GrVkGpu* gpu,
 
     VkSubpassDependency dependencies[2];
     int currentDependency = 0;
+    bool skipSetSubpassDep = false;
 
     if (attachmentFlags & kColor_AttachmentFlag) {
         // set up color attachment
@@ -195,6 +196,8 @@ GrVkRenderPass* GrVkRenderPass::Create(GrVkGpu* gpu,
 
                 dependency.dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
                 dependency.dstAccessMask |= VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+
+                skipSetSubpassDep = true;
             }
         }
 
@@ -297,8 +300,14 @@ GrVkRenderPass* GrVkRenderPass::Create(GrVkGpu* gpu,
     createInfo.pAttachments = attachments.begin();
     createInfo.subpassCount = subpassCount;
     createInfo.pSubpasses = subpassDescs;
-    createInfo.dependencyCount = currentDependency;
-    createInfo.pDependencies = dependencies;
+    // skipSetSubpassDep is a non-specification operation
+    if (skipSetSubpassDep && currentDependency == 1) {
+        createInfo.dependencyCount = 0;
+        createInfo.pDependencies = nullptr;
+    } else {
+        createInfo.dependencyCount = currentDependency;
+        createInfo.pDependencies = dependencies;
+    }
 
     VkResult result;
     VkRenderPass renderPass;
