@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2024 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,32 +27,6 @@
 std::unique_ptr<OHOS::NWeb::OhosImageDecoderAdapter> HeifDecoder::decoder_adapter_;
 
 #define HEIF_BYTES_PER_PIXEL_RGBA_8888 4
-
-void HeifDecoder::SaveDataToFile(void* ptr, uint64_t size)
-{
-    static const std::string SANDBOX = "/data/storage/el2/base/files/";
-
-    std::string fileName = SANDBOX + "heif";
-    std::string mapString = "_w_" + std::to_string(GetDecoderAdapter()->GetImageWidth()) +
-                            "_h_" + std::to_string(GetDecoderAdapter()->GetImageHeight()) +
-                            "_stride_" + std::to_string(GetDecoderAdapter()->GetStride()) +
-                            "_size_" + std::to_string(size);
-    fileName += mapString + ".dat";
-
-    std::ofstream outFile(fileName, std::ofstream::out);
-    if (!outFile.is_open()) {
-        LOG(ERROR) << "[HeifSupport] HeifDecoder::SaveDataToFile open " << fileName << " failed.";
-        outFile.close();
-        return;
-    }
-
-    outFile.write(reinterpret_cast<const char*>(ptr), size);
-    if (outFile.fail()) {
-        LOG(ERROR) << "[HeifSupport] HeifDecoder::SaveDataToFile write " << fileName << " failed.";
-    }
-    LOG(DEBUG) << "[HeifSupport] HeifDecoder::SaveDataToFile close " << fileName;
-    outFile.close();
-}
 
 bool HeifDecoder::Init(std::unique_ptr<SkStream> stream, HeifFrameInfo* heifInfo)
 {

@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2024 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,6 +42,8 @@ class OhosImageDecoderAdapter;
 
 class HeifDecoder {
 public:
+    HeifDecoder() : data_(nullptr), color_format_(HeifColorFormat::UNKNOWN) {}
+
     bool Init(std::unique_ptr<SkStream> stream, HeifFrameInfo* heifInfo);
     bool Decode(HeifFrameInfo* heifInfo);
     bool SetOutputColor(HeifColorFormat colorFormat);
@@ -59,7 +60,7 @@ public:
 private:
     static std::unique_ptr<OHOS::NWeb::OhosImageDecoderAdapter> decoder_adapter_;
     static OHOS::NWeb::OhosImageDecoderAdapter* GetDecoderAdapter();
-    void SaveDataToFile(void* ptr, uint64_t size);
+
     HeifColorFormat color_format_;
     sk_sp<SkData> data_;
 };
