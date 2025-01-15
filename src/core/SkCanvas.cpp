@@ -1790,7 +1790,9 @@ void SkCanvas::drawPaint(const SkPaint& paint) {
 }
 
 void SkCanvas::drawRect(const SkRect& r, const SkPaint& paint) {
+#if !defined(SK_BUILD_FOR_OHOS)
     TRACE_EVENT0("skia", TRACE_FUNC);
+#endif
     // To avoid redundant logic in our culling code and various backends, we always sort rects
     // before passing them along.
     this->onDrawRect(r.makeSorted(), paint);
