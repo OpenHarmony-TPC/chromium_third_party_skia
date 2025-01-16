@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,21 +14,20 @@
  */
 
 #ifdef SK_HAS_HEIF_LIBRARY
+#include "SkHeifDecoderAPIOhos.h"
+
 #include <sys/mman.h>
 #include <fstream>
 
 #include "base/logging.h"
 #include "base/containers/span.h"
-#include "include/core/SkStream.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
-#include "SkHeifDecoderAPI.h"
-
-std::unique_ptr<OHOS::NWeb::OhosImageDecoderAdapter> HeifDecoder::decoder_adapter_;
+std::unique_ptr<OHOS::NWeb::OhosImageDecoderAdapter> HeifDecoder::decoderAdapter_;
 
 #define HEIF_BYTES_PER_PIXEL_RGBA_8888 4
 
-bool HeifDecoder::Init(std::unique_ptr<SkStream> stream, HeifFrameInfo* heifInfo)
+bool HeifDecoder::init(std::unique_ptr<SkStream> stream, HeifFrameInfo* heifInfo)
 {
     auto skData = SkData::MakeFromStream(stream.get(), stream->getLength());
     if (skData == nullptr) {
@@ -37,63 +36,66 @@ bool HeifDecoder::Init(std::unique_ptr<SkStream> stream, HeifFrameInfo* heifInfo
     }
 
     base::span<const uint8_t> encodedData = base::make_span(skData->bytes(), skData->size());
-    if (!GetDecoderAdapter()->ParseImageInfo(encodedData.data(), (uint32_t)encodedData.size())) {
+    if (!getDecoderAdapter()->ParseImageInfo(encodedData.data(), (uint32_t)encodedData.size())) {
         LOG(ERROR) << "[HeifSupport] HeifDecoder::Init ParseImageInfo failed.";
         return false;
     }
 
-    heifInfo->mHeight = GetDecoderAdapter()->GetImageHeight();
-    heifInfo->mWidth = GetDecoderAdapter()->GetImageWidth();
+    heifInfo->mHeight = getDecoderAdapter()->GetImageHeight();
+    heifInfo->mWidth = getDecoderAdapter()->GetImageWidth();
 
     data_ = std::move(skData);
     return true;
 }
 
-bool HeifDecoder::Decode(HeifFrameInfo* heifInfo)
+bool HeifDecoder::decode(HeifFrameInfo* heifInfo)
 {
-    bool useYuv = (color_format_ == kHeifColorFormat_RGBA_8888) ? false : true;
+    if (!heifInfo) {
+        return false;
+    }
+    bool useYuv = (colorFormat_ == kHeifColorFormat_RGBA_8888) ? false : true;
     if (!useYuv) {
         heifInfo->mBytesPerPixel = HEIF_BYTES_PER_PIXEL_RGBA_8888;
     }
 
-    return GetDecoderAdapter()->Decode((const uint8_t*)data_->bytes(), (uint32_t)data_->size(),
+    return getDecoderAdapter()->Decode((const uint8_t*)data_->bytes(), (uint32_t)data_->size(),
                                        OHOS::NWeb::AllocatorType::kDmaAlloc, useYuv);
 }
 
-bool HeifDecoder::SetOutputColor(HeifColorFormat colorFormat)
+bool HeifDecoder::setOutputColor(HeifColorFormat colorFormat)
 {
-    color_format_ = colorFormat;
+    colorFormat_ = colorFormat;
     return true;
 }
 
-void* HeifDecoder::GetDecodeData(uint64_t& size)
+void* HeifDecoder::getDecodeData(uint64_t& size)
 {
-    size = GetDecoderAdapter()->GetSize();
+    size = getDecoderAdapter()->GetSize();
     void* ptr = mmap(nullptr, size, PROT_READ, MAP_PRIVATE,
-                     GetDecoderAdapter()->GetFd(), GetDecoderAdapter()->GetOffset());
+                     getDecoderAdapter()->GetFd(), getDecoderAdapter()->GetOffset());
     if (ptr == MAP_FAILED) {
         return nullptr;
     }
     return ptr;
 }
 
-int32_t HeifDecoder::GetStride()
+int32_t HeifDecoder::getStride()
 {
-    return GetDecoderAdapter()->GetStride();
+    return getDecoderAdapter()->GetStride();
 }
 
-void HeifDecoder::CloseDecodeData(void* ptr, uint64_t size)
+void HeifDecoder::closeDecodeData(void* ptr, uint64_t size)
 {
     munmap(ptr, size);
     return;
 }
 
-OHOS::NWeb::OhosImageDecoderAdapter* HeifDecoder::GetDecoderAdapter() {
-    if (!decoder_adapter_) {
-        decoder_adapter_ = OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateOhosImageDecoderAdapter();
+OHOS::NWeb::OhosImageDecoderAdapter* HeifDecoder::getDecoderAdapter() {
+    if (!decoderAdapter_) {
+        decoderAdapter_ = OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateOhosImageDecoderAdapter();
     }
 
-    return decoder_adapter_.get();
+    return decoderAdapter_.get();
 }
 
 #endif // SK_HAS_HEIF_LIBRARY

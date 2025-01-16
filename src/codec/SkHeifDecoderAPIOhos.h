@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,8 +19,12 @@
 #include <memory>
 #include <stddef.h>
 #include <stdint.h>
+#include <vector>
+
+#include "include/core/SkStream.h"
 
 enum HeifColorFormat {
+    kHeifColorFormat_INVALID = -1,
     kHeifColorFormat_RGB565,
     kHeifColorFormat_RGBA_8888,
     kHeifColorFormat_BGRA_8888,
@@ -42,26 +46,25 @@ class OhosImageDecoderAdapter;
 
 class HeifDecoder {
 public:
-    HeifDecoder() : data_(nullptr), color_format_(HeifColorFormat::UNKNOWN) {}
+    HeifDecoder() : colorFormat_(HeifColorFormat::kHeifColorFormat_INVALID), data_(nullptr) {}
 
-    bool Init(std::unique_ptr<SkStream> stream, HeifFrameInfo* heifInfo);
-    bool Decode(HeifFrameInfo* heifInfo);
-    bool SetOutputColor(HeifColorFormat colorFormat);
-    void* GetDecodeData(uint64_t& size);
-    void CloseDecodeData(void* ptr, uint64_t size);
-    int32_t GetStride();
+    bool init(std::unique_ptr<SkStream> stream, HeifFrameInfo* heifInfo);
+    bool decode(HeifFrameInfo* heifInfo);
+    bool setOutputColor(HeifColorFormat colorFormat);
+    void* getDecodeData(uint64_t& size);
+    void closeDecodeData(void* ptr, uint64_t size);
+    int32_t getStride();
 
     bool getSequenceInfo(HeifFrameInfo* frameInfo, size_t *frameCount) { return false; }
-    bool decode(HeifFrameInfo*) { return false; }
     bool decodeSequence(int frameIndex, HeifFrameInfo* frameInfo) { return false; }
-    int skipScanlines(int) { return 0; }
+    int32_t skipScanlines(int) { return 0; }
     uint32_t getColorDepth() { return 0; }
 
 private:
-    static std::unique_ptr<OHOS::NWeb::OhosImageDecoderAdapter> decoder_adapter_;
-    static OHOS::NWeb::OhosImageDecoderAdapter* GetDecoderAdapter();
+    static std::unique_ptr<OHOS::NWeb::OhosImageDecoderAdapter> decoderAdapter_;
+    static OHOS::NWeb::OhosImageDecoderAdapter* getDecoderAdapter();
 
-    HeifColorFormat color_format_;
+    HeifColorFormat colorFormat_;
     sk_sp<SkData> data_;
 };
 

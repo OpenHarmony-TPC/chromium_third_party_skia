@@ -15,8 +15,8 @@
 #include "src/codec/SkFrameHolder.h"
 #include "src/codec/SkSwizzler.h"
 
-#if __has_include("SkHeifDecoderAPI.h")
-    #include "SkHeifDecoderAPI.h"
+#if __has_include("SkHeifDecoderAPIOhos.h")
+    #include "SkHeifDecoderAPIOhos.h"
 #else
     #include "src/codec/SkStubHeifDecoderAPI.h"
 #endif
