@@ -17,6 +17,7 @@
 
 #include "FontInfo_ohos.h"
 #include "SkTypeface_ohos.h"
+#include "ohos_adapter_helper.h"
 
 #ifdef ENABLE_DEBUG
 
@@ -45,6 +46,7 @@ using GenericFamilySet = std::vector<std::unique_ptr<GenericFamily>>;
 using FallbackSet = std::vector<std::unique_ptr<FallbackInfo>>;
 using FallbackForMap = skia_private::THashMap<SkString, FallbackSetPos>;
 using NamesMap = skia_private::THashMap<SkString, int>;
+using NamePathMap = skia_private::THashMap<SkString, SkString>;
 using Coordinate = SkFontArguments::VariationPosition::Coordinate;
 using AxisDefinitions = SkTypeface_FreeType::Scanner::AxisDefinitions;
 
@@ -108,6 +110,9 @@ public:
     int getFamilyName(int index, SkString* familyName) const;
     int getTypefaceCount(int styleIndex, bool isFallback = false) const;
     int getStyleIndex(const char* familyName, bool& isFallback) const;
+    void buildNameToFamilyMap();
+    void buildStyleNameToFamilyMap(OHOS::NWeb::ArkWeb_Drawing_SystemFontType fontType);
+    int checkNewFontengineISOK();
 
     SkTypeface_OHOS* getTypeface(int styleIndex, int index, bool isFallback = false) const;
     SkTypeface_OHOS* getTypeface(int styleIndex, const SkFontStyle& style,
@@ -138,6 +143,7 @@ private:
     using AjdustMap = skia_private::THashMap<SkString, std::vector<AdjustInfo>>;
     using VariationMap = skia_private::THashMap<SkString, std::vector<VariationInfo>>;
     using TtcIndexMap = skia_private::THashMap<SkString, TtcIndexInfo>;
+    SkTypeface_FreeType::Scanner newfontScanner; // the scanner to parse a font file
 
     /*!
      * \brief To manage the adjust information
@@ -195,6 +201,7 @@ private:
 
     NamesMap genericNames; // a map to store the index of a family for generic family
     NamesMap fallbackNames; // a map to store the index of a family for fallback family
+    NamePathMap pathToFamily;
 
     std::vector<ErrorInfo> errSet; // the errors happened
     AliasMap aliasMap; // to save alias information temporarily
@@ -218,8 +225,10 @@ private:
     bool insertVariableFont(const AxisDefinitions& axisDefinitions, FontInfo& font);
     TypefaceSet* getTypefaceSet(const SkString& familyName, SkString& specifiedName) const;
 
-    int loadFont(const SkTypeface_FreeType::Scanner& scanner, const char* fname);
-    int scanFonts(const SkTypeface_FreeType::Scanner& fontScanner);
+    int loadFont(const SkTypeface_FreeType::Scanner& scanner, const char* fname, const bool& installedOrStyle);
+    int scanFonts(const SkTypeface_FreeType::Scanner& fontScanner, const SkString& path, const bool& installedOrStyle);
+    int loadFontBackup(const SkTypeface_FreeType::Scanner& scanner, const char* fname);
+    int scanFontsBackup(const SkTypeface_FreeType::Scanner& fontScanner);
     void resetGenericValue();
     void buildSubTypefaceSet(const std::shared_ptr<TypefaceSet>& typefaceSet,
         std::shared_ptr<TypefaceSet>& subSet, const SkString& familyName, int weight);
