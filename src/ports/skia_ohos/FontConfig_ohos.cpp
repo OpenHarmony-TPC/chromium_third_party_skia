@@ -1300,7 +1300,7 @@ int FontConfig_OHOS::scanFontsBackup(const SkTypeface_FreeType::Scanner& fontSca
     if (fontDirSet.size() == 0) {
         fontDirSet.emplace_back(SkString("/system/fonts/"));
     }
-    
+
     for (unsigned int i = 0; i < fontDirSet.size(); i++) {
         DIR* dir = opendir(fontDirSet[i].c_str());
         if (dir == nullptr) {
@@ -1326,7 +1326,7 @@ int FontConfig_OHOS::scanFontsBackup(const SkTypeface_FreeType::Scanner& fontSca
                 fullname.append("/");
             }
             fullname.append(fname);
-            loadFont(fontScanner, fullname.c_str());
+            loadFontBackup(fontScanner, fullname.c_str());
         }
         closedir(dir);
     }
