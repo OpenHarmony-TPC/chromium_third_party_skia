@@ -1022,6 +1022,10 @@ using byte4   = Vec< 4, uint8_t>;
 using byte8   = Vec< 8, uint8_t>;
 using byte16  = Vec<16, uint8_t>;
 
+using ushort2 = Vec< 2, uint16_t>;
+using ushort4 = Vec< 4, uint16_t>;
+using ushort8 = Vec< 8, uint16_t>;
+
 using int2    = Vec< 2, int32_t>;
 using int4    = Vec< 4, int32_t>;
 using int8    = Vec< 8, int32_t>;
