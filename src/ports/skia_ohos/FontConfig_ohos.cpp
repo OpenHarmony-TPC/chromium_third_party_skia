@@ -13,9 +13,12 @@
 
 #include "include/core/SkFontStyle.h"
 #include "include/core/SkString.h"
+#include "base/ohos/sys_info_utils.h"
+#include "SkFontMgr_ohos.h"
 
 using namespace ErrorCode;
 
+SkString OHOS_FONT_INSTALL_DIR("/data/service/el1/public/for-all-app/fonts/");
 static const char* OHOS_DEFAULT_CONFIG = "/system/etc/fontconfig.json";
 
 /*! Constructor
@@ -26,13 +29,172 @@ static const char* OHOS_DEFAULT_CONFIG = "/system/etc/fontconfig.json";
 FontConfig_OHOS::FontConfig_OHOS(const SkTypeface_FreeType::Scanner& fontScanner,
     const char* fname)
 {
-    int err = parseConfig(fname);
-    if (err != NO_ERROR) {
-        return;
+    if (checkNewFontengineISOK()) {
+        LOG(DEBUG) << "The program follows the latest font engine path.";
+        buildNameToFamilyMap();
+        buildStyleNameToFamilyMap(OHOS::NWeb::ArkWeb_Drawing_SystemFontType::STYLISH);
+        for (const auto& dir : fontDirSet) {
+            scanFonts(fontScanner, dir, false);
+        }
+        if (base::ohos::IsTabletDevice() || base::ohos::IsPcDevice()) {
+            scanFonts(fontScanner, OHOS_FONT_INSTALL_DIR, true);
+        }
+    } else {
+        LOG(DEBUG) << "The program follows the old font engine path.";
+        int err = parseConfig(fname);
+        if (err != NO_ERROR) {
+            return;
+        }
+        scanFontsBackup(fontScanner);
     }
-    scanFonts(fontScanner);
     resetGenericValue();
     resetFallbackValue();
+}
+
+/*! To Check the new font engine is ok
+ */
+int FontConfig_OHOS::checkNewFontengineISOK()
+{
+    OHOS::NWeb::ArkWeb_Drawing_FontConfigInfo* fontconfig = nullptr;
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                 .GetOhosDrawingTextTypographyAdapter()
+                                 .GetSystemFontConfigInfo(nullptr, reinterpret_cast<void**>(&fontconfig));
+    if (fontconfig == nullptr) {
+        return 0;
+    } else {
+        OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                 .GetOhosDrawingTextTypographyAdapter()
+                                 .DestroySystemFontConfigInfo(fontconfig);
+        fontconfig = nullptr;
+        return 1;
+    }
+}
+
+/*! To build name to genericFamilySet and fallbackSet
+ */
+void FontConfig_OHOS::buildNameToFamilyMap()
+{
+    OHOS::NWeb::ArkWeb_Drawing_FontConfigInfo* fontconfig = nullptr;
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                    .GetOhosDrawingTextTypographyAdapter()
+                                    .GetSystemFontConfigInfo(nullptr, reinterpret_cast<void**>(&fontconfig));
+    if (fontconfig == nullptr) {
+        LOG(ERROR) << "the font configuration class was empty.";
+        return;
+    }
+    for (int i = 0; i < fontconfig->fontDirSize; ++i) {
+        fontDirSet.push_back(SkString(fontconfig->fontDirSet[i]));
+    }
+    for (int i = 0; i < fontconfig->fontGenericInfoSize; i++) {
+        auto familyName = fontconfig->fontGenericInfoSet[i].familyName;
+        std::vector<AliasInfo> aliasSet;
+        for (int j = 0; j < fontconfig->fontGenericInfoSet[i].aliasInfoSize; j++) {
+            auto weight = fontconfig->fontGenericInfoSet[i].aliasInfoSet[j].weight;
+            auto innerFamilyName = fontconfig->fontGenericInfoSet[i].aliasInfoSet[j].familyName;
+            std::unique_ptr<GenericFamily> genericFamily = std::make_unique<GenericFamily>();
+            genericFamily->familyName = SkString(innerFamilyName);
+            if (aliasSet.size() == 0 || weight > 0) {
+                genericFamily->typefaceSet = std::make_shared<TypefaceSet>();
+            } else {
+                int index = aliasSet[0].pos;
+                genericFamily->typefaceSet = genericFamilySet[index]->typefaceSet;
+            }
+            genericNames.set(SkString(genericFamily->familyName), genericFamilySet.size());
+            AliasInfo info = {static_cast<int>(genericFamilySet.size()), weight};
+            aliasSet.emplace_back(std::move(info));
+            genericFamilySet.emplace_back(std::move(genericFamily));
+        }
+
+        if (aliasSet.size()) {
+            aliasMap.set(SkString(familyName), aliasSet);
+        }
+
+        std::vector<AdjustInfo> adjustSet;
+        for (int j = 0; j < fontconfig->fontGenericInfoSet[i].adjustInfoSize; j++) {
+            auto weight = fontconfig->fontGenericInfoSet[i].adjustInfoSet[j].weight;
+            auto to = fontconfig->fontGenericInfoSet[i].adjustInfoSet[j].to;
+            AdjustInfo info = {weight, to};
+            adjustSet.push_back(info);
+        }
+
+        if (adjustSet.size()) {
+            adjustMap.set(SkString(familyName), adjustSet);
+        }
+    }
+
+    for (int i = 0; i < fontconfig->fallbackGroupSize; i++) {
+        unsigned int startPos = fallbackSet.size();
+        SkString fallbackFor("");
+        for (int j = 0; j < fontconfig->fallbackGroupSet[i].fallbackInfoSize; j++) {
+            auto langs = fontconfig->fallbackGroupSet[i].fallbackInfoSet[j].language;
+            auto familyName = fontconfig->fallbackGroupSet[i].fallbackInfoSet[j].familyName;
+            std::unique_ptr<FallbackInfo> fallback = std::make_unique<FallbackInfo>();
+            fallback->langs = SkString(langs);
+            fallback->familyName = SkString(familyName);
+            fallback->typefaceSet = std::make_shared<TypefaceSet>();
+            fallbackNames.set(SkString(familyName), fallbackSet.size());
+            fallbackSet.emplace_back(std::move(fallback));
+        }
+        FallbackSetPos setPos = {startPos, (unsigned int)(fallbackSet.size() - startPos)};
+        fallbackForMap.set(fallbackFor, setPos);
+    }
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                .GetOhosDrawingTextTypographyAdapter()
+                                .DestroySystemFontConfigInfo(fontconfig);
+    fontconfig = nullptr;
+}
+ 
+/*! To build stylish name to fallbackSet
+*/
+void FontConfig_OHOS::buildStyleNameToFamilyMap(
+                    OHOS::NWeb::ArkWeb_Drawing_SystemFontType fontType)
+{
+    void* fontList = nullptr;
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                .GetOhosDrawingTextFontAdapter()
+                                .GetSystemFontFullNamesByType(fontType, reinterpret_cast<void**>(&fontList));
+    int32_t size = 0;
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                .GetOhosDrawingTextTypographyAdapter()
+                                .GetDrawingArraySize(fontList, size);
+    SkString fallbackFor("");
+    unsigned int startPos = 0;
+    for(size_t index = 0; index < size; ++index) {
+        const void* fontFullName = nullptr;
+        OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                    .GetOhosDrawingTextFontAdapter()
+                                    .GetSystemFontFullNameByIndex(fontList, index, &fontFullName);
+        OHOS::NWeb::ArkWeb_Drawing_FontDescriptor* description = nullptr;
+        const OHOS::NWeb::ArkWeb_Drawing_String* drawingString =
+                        static_cast<const OHOS::NWeb::ArkWeb_Drawing_String*>(fontFullName);
+        OHOS::NWeb::ArkWeb_Drawing_String* nonConstDrawingString =
+                        const_cast<OHOS::NWeb::ArkWeb_Drawing_String*>(drawingString);
+        OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                    .GetOhosDrawingTextFontAdapter()
+                                    .GetFontDescriptorByFullName(nonConstDrawingString,
+                                                                fontType, reinterpret_cast<void**>(&description));
+        if (description == nullptr) {
+            LOG(ERROR) << "one font description was empty at index:" << index;
+            continue;
+        }
+        std::unique_ptr<FallbackInfo> fallback = std::make_unique<FallbackInfo>();
+        fallback->familyName = SkString(description->fontFamily);
+        fallback->typefaceSet = std::make_shared<TypefaceSet>();
+        fallbackNames.set(SkString(description->fontFamily), fallbackSet.size());
+        fallbackSet.emplace_back(std::move(fallback));
+        pathToFamily.set(SkString(description->path), SkString(description->fontFamily));
+        OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                    .GetOhosDrawingTextFontAdapter()
+                                    .DestroyFontDescriptor(description);
+        description = nullptr;
+    }
+
+    FallbackSetPos  setPos = {startPos, (unsigned int)(fallbackSet.size() - startPos)};
+    fallbackForMap.set(fallbackFor, setPos);
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                .GetOhosDrawingTextFontAdapter()
+                                .DestroySystemFontFullNames(fontList);
+    fontList = nullptr;
 }
 
 /*! To get the fallbackForMap
@@ -957,7 +1119,81 @@ TypefaceSet* FontConfig_OHOS::getTypefaceSet(const SkString& familyName,
  * \return ERROR_FONT_NOT_EXIST font file is not exist
  * \return ERROR_FONT_INVALID_STREAM the stream is not recognized
  */
-int FontConfig_OHOS::loadFont(const SkTypeface_FreeType::Scanner& scanner, const char* fname)
+int FontConfig_OHOS::loadFont(const SkTypeface_FreeType::Scanner& scanner,
+                              const char* fname, const bool& installedOrStyle)
+{
+    std::unique_ptr<SkStreamAsset> stream = SkStream::MakeFromFile(fname);
+    int count = 1;
+    SkTypeface_FreeType::Scanner::AxisDefinitions axisDefs;
+    FontInfo font(fname, 0);
+    if (stream == nullptr ||
+        scanner.recognizedFont(stream.get(), &count) == false ||
+        scanner.scanFont(stream.get(), 0, &font.familyName, &font.style,
+               &font.isFixedWidth, &axisDefs) == false) {
+        int err = NO_ERROR;
+        if (stream == nullptr) {
+            err = ERROR_FONT_NOT_EXIST;
+        } else {
+            err = ERROR_FONT_INVALID_STREAM;
+        }
+        LOGE("%s : %s\n", errToString(err), fname);
+        char* fnameCopy = strdup(fname);
+        errSet.emplace_back(err, basename(fnameCopy));
+        free(fnameCopy);
+        return err;
+    }
+    int installPathLen = strlen("/data/service/el1/public/for-all-app/fonts/");
+    if (installedOrStyle &&
+                strncmp(fname, OHOS_FONT_INSTALL_DIR.c_str(), installPathLen) == 0) {
+        SkString fallbackFor("");
+        unsigned int startPos = 0;
+        std::unique_ptr<FallbackInfo> fallback = std::make_unique<FallbackInfo>();
+        fallback->familyName = SkString(font.familyName);
+        fallback->typefaceSet = std::make_shared<TypefaceSet>();
+        fallbackNames.set(SkString(font.familyName), fallbackSet.size());
+        fallbackSet.emplace_back(std::move(fallback));
+        FallbackSetPos setPos = {startPos, (unsigned int)(fallbackSet.size() - startPos)};
+        fallbackForMap.set(fallbackFor, setPos);
+    }
+    // for adjustMap - update weight
+    if (adjustMap.find(font.familyName) != nullptr) {
+        const std::vector<AdjustInfo> adjustSet = *(adjustMap.find(font.familyName));
+        for (unsigned int i = 0; i < adjustSet.size(); i++) {
+            if (font.style.weight() == adjustSet[i].origValue) {
+                font.style = SkFontStyle(adjustSet[i].newValue, font.style.width(), font.style.slant());
+                break;
+            }
+        }
+    }
+    bool ret = false;
+    if (count > 1) {
+        ret = insertTtcFont(count, font);
+    } else if (axisDefs.size() > 0) {
+        ret = insertVariableFont(axisDefs, font);
+    }
+    auto familyName = pathToFamily.find(SkString(fname));
+    if (familyName) {
+        font.familyName = familyName->c_str();
+    }
+    if (!ret) {
+        SkString specifiedName;
+        TypefaceSet* tpSet = getTypefaceSet(font.familyName, specifiedName);
+        if (tpSet) {
+            sk_sp<SkTypeface_OHOS> typeface = sk_make_sp<SkTypeface_OHOS>(specifiedName, font);
+            tpSet->push_back(std::move(typeface));
+        }
+    }
+    return NO_ERROR;
+}
+
+/*! To load font information from a font file
+ * \param scanner a scanner used to parse the font file
+ * \param fname the full name of a font file
+ * \return NO_ERROR successful
+ * \return ERROR_FONT_NOT_EXIST font file is not exist
+ * \return ERROR_FONT_INVALID_STREAM the stream is not recognized
+ */
+int FontConfig_OHOS::loadFontBackup(const SkTypeface_FreeType::Scanner& scanner, const char* fname)
 {
     std::unique_ptr<SkStreamAsset> stream = SkStream::MakeFromFile(fname);
     int count = 1;
@@ -979,6 +1215,7 @@ int FontConfig_OHOS::loadFont(const SkTypeface_FreeType::Scanner& scanner, const
         free(fnameCopy);
         return err;
     }
+
     // for adjustMap - update weight
     if (adjustMap.find(font.familyName) != nullptr) {
         const std::vector<AdjustInfo> adjustSet = *(adjustMap.find(font.familyName));
@@ -1011,12 +1248,59 @@ int FontConfig_OHOS::loadFont(const SkTypeface_FreeType::Scanner& scanner, const
  * \return NO_ERROR success
  * \return ERROR_DIR_NOT_FOUND a font directory is not exist
  */
-int FontConfig_OHOS::scanFonts(const SkTypeface_FreeType::Scanner& fontScanner)
+ int FontConfig_OHOS::scanFonts(const SkTypeface_FreeType::Scanner& fontScanner,
+                                const SkString& path, const bool& installedOrStyle)
+{
+    int err = NO_ERROR;
+    if (fontDirSet.size() == 0) {
+        fontDirSet.emplace_back(path);
+    }
+
+    for (unsigned int i = 0; i < fontDirSet.size(); i++) {
+        DIR* dir = opendir(fontDirSet[i].c_str());
+        if (dir == nullptr) {
+            err = logErrInfo(ERROR_DIR_NOT_FOUND, fontDirSet[i].c_str());
+            continue;
+        }
+        struct dirent* node = nullptr;
+        while ((node = readdir(dir))) {
+            if (node->d_type != DT_REG) {
+                continue;
+            }
+            const char* fname = node->d_name;
+            int len = strlen(fname);
+            int suffixLen = strlen(".ttf");
+            if (len < suffixLen || (strncasecmp(fname + len - suffixLen, ".ttf", suffixLen) &&
+                strncasecmp(fname + len - suffixLen, ".otf", suffixLen) &&
+                strncasecmp(fname + len - suffixLen, ".ttc", suffixLen) &&
+                strncasecmp(fname + len - suffixLen, ".otc", suffixLen))) {
+                continue;
+            }
+            SkString fullname = fontDirSet[i];
+            if (fullname[fullname.size()-1] != '/') {
+                fullname.append("/");
+            }
+            fullname.append(fname);
+            loadFont(fontScanner, fullname.c_str(), installedOrStyle);
+        }
+        closedir(dir);
+    }
+    fontDirSet.clear();
+    return err;
+}
+
+/*! To scan the system font directories
+ * \param fontScanner the scanner used to parse a font file
+ * \return NO_ERROR success
+ * \return ERROR_DIR_NOT_FOUND a font directory is not exist
+ */
+int FontConfig_OHOS::scanFontsBackup(const SkTypeface_FreeType::Scanner& fontScanner)
 {
     int err = NO_ERROR;
     if (fontDirSet.size() == 0) {
         fontDirSet.emplace_back(SkString("/system/fonts/"));
     }
+
     for (unsigned int i = 0; i < fontDirSet.size(); i++) {
         DIR* dir = opendir(fontDirSet[i].c_str());
         if (dir == nullptr) {
@@ -1042,7 +1326,7 @@ int FontConfig_OHOS::scanFonts(const SkTypeface_FreeType::Scanner& fontScanner)
                 fullname.append("/");
             }
             fullname.append(fname);
-            loadFont(fontScanner, fullname.c_str());
+            loadFontBackup(fontScanner, fullname.c_str());
         }
         closedir(dir);
     }
