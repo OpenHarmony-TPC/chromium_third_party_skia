@@ -22,6 +22,9 @@
 #include "src/core/SkScan.h"
 #include "src/core/SkScanPriv.h"
 
+#include "base/logging.h"
+#include "src/core/SkTraceEvent.h"
+
 #include <utility>
 
 #if defined(SK_DISABLE_AAA)
@@ -88,6 +91,8 @@ number of scan lines in our algorithm is only about 3 + H while the
 16-supersampling algorithm has about 4H scan lines.
 
 */
+
+static const int kRECORD_CYCLE_TIMES = 5000;
 
 static void add_alpha(SkAlpha* alpha, SkAlpha delta) {
     SkASSERT(*alpha + delta <= 256);
@@ -613,7 +618,7 @@ static void compute_alpha_above_line(SkAlpha* alphas,
         SkFixed alpha16 = firstH + (dY >> 1);              // rectangle plus triangle
         for (int i = 1; i < R - 1; ++i) {
             alphas[i] = alpha16 >> 8;
-            alpha16 += dY;
+            alpha16 += SkFixedSatAdd(alpha16, dY);
         }
         alphas[R - 1] = fullAlpha - partial_triangle_to_alpha(last, dY);
     }
@@ -640,7 +645,7 @@ static void compute_alpha_below_line(SkAlpha* alphas,
         SkFixed alpha16 = lastH + (dY >> 1);             // rectangle plus triangle
         for (int i = R - 2; i > 0; i--) {
             alphas[i] = (alpha16 >> 8) & 0xFF;
-            alpha16 += dY;
+            alpha16 += SkFixedSatAdd(alpha16, dY);
         }
         alphas[0] = fullAlpha - partial_triangle_to_alpha(first, dY);
     }
@@ -1599,6 +1604,8 @@ static void aaa_walk_edges(SkAnalyticEdge*  prevHead,
                         false);
     }
 
+    int cnt = 0;
+    bool needDump = true;
     while (true) {
         int             w               = 0;
         bool            in_interval     = isInverse;
@@ -1835,6 +1842,14 @@ static void aaa_walk_edges(SkAnalyticEdge*  prevHead,
         }
 
         y = nextY;
+        cnt++;
+        if (cnt > kRECORD_CYCLE_TIMES && needDump) {
+            TRACE_EVENT2("skia", TRACE_FUNC, "bound bottom", start_y, "bound top", stop_y);
+            LOG(ERROR) << "aaa_walk_edges cycle times: " << cnt << ", current y: " << y
+                << ", bound bottom: " << start_y << ", top: " << stop_y
+                << ", left" << leftClip << ", right: " << rightClip;
+            needDump = false;
+        }
         if (y >= SkIntToFixed(stop_y)) {
             break;
         }
