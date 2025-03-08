@@ -29,7 +29,7 @@ static const char* OHOS_DEFAULT_CONFIG = "/system/etc/fontconfig.json";
 FontConfig_OHOS::FontConfig_OHOS(const SkTypeface_FreeType::Scanner& fontScanner,
     const char* fname)
 {
-    if (checkNewFontengineISOK()) {
+    if (!base::ohos::IsMobileDevice() && checkNewFontengineISOK()) {
         LOG(DEBUG) << "The program follows the latest font engine path.";
         buildNameToFamilyMap();
         buildStyleNameToFamilyMap(OHOS::NWeb::ArkWeb_Drawing_SystemFontType::STYLISH);
