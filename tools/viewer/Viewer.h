@@ -11,21 +11,20 @@
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkData.h"
 #include "include/core/SkFont.h"
-#include "include/gpu/GrContextOptions.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
 #include "include/private/base/SkTArray.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "modules/skcms/skcms.h"
-#include "src/core/SkScan.h"
 #include "src/sksl/ir/SkSLProgram.h"
 #include "tools/gpu/MemoryCache.h"
 #include "tools/sk_app/Application.h"
 #include "tools/sk_app/CommandSet.h"
-#include "tools/sk_app/DisplayParams.h"
 #include "tools/sk_app/Window.h"
 #include "tools/viewer/AnimTimer.h"
 #include "tools/viewer/ImGuiLayer.h"
 #include "tools/viewer/StatsLayer.h"
 #include "tools/viewer/TouchGesture.h"
+#include "tools/window/DisplayParams.h"
 
 #include <cstdint>
 #include <atomic>
@@ -53,6 +52,7 @@ public:
     void onResize(int width, int height) override;
     bool onTouch(intptr_t owner, skui::InputState state, float x, float y) override;
     bool onMouse(int x, int y, skui::InputState state, skui::ModifierKey modifiers) override;
+    bool onMouseWheel(float delta, int x, int y, skui::ModifierKey) override;
     void onUIStateChanged(const SkString& stateName, const SkString& stateValue) override;
     bool onKey(skui::Key key, skui::InputState state, skui::ModifierKey modifiers) override;
     bool onChar(SkUnichar c, skui::ModifierKey modifiers) override;
@@ -124,14 +124,6 @@ public:
         bool fAntiAlias = false;
         bool fDither = false;
         bool fForceRuntimeBlend = false;
-        enum class AntiAliasState {
-            Alias,
-            Normal,
-            AnalyticAAEnabled,
-            AnalyticAAForced,
-        } fAntiAliasState = AntiAliasState::Alias;
-        const bool fOriginalSkUseAnalyticAA = gSkUseAnalyticAA;
-        const bool fOriginalSkForceAnalyticAA = gSkForceAnalyticAA;
 
         bool fCapType = false;
         bool fJoinType = false;
@@ -174,7 +166,7 @@ private:
     void drawImGui();
 
     void changeZoomLevel(float delta);
-    void preTouchMatrixChanged();
+    void updateGestureTransLimit();
     SkMatrix computePreTouchMatrix();
     SkMatrix computePerspectiveMatrix();
     SkMatrix computeMatrix();
@@ -261,7 +253,7 @@ private:
 
     // fDisplay contains default values (fWindow.fRequestedDisplayParams contains the overrides),
     // fDisplayOverrides controls if overrides are applied.
-    sk_app::DisplayParams fDisplay;
+    skwindow::DisplayParams fDisplay;
     DisplayFields fDisplayOverrides;
 
     struct CachedShader {
@@ -271,9 +263,9 @@ private:
         SkString            fKeyString;
         SkString            fKeyDescription;
 
-        SkFourByteTag         fShaderType;
-        std::string           fShader[kGrShaderTypeCount];
-        SkSL::Program::Inputs fInputs[kGrShaderTypeCount];
+        SkFourByteTag            fShaderType;
+        std::string              fShader[kGrShaderTypeCount];
+        SkSL::Program::Interface fInterfaces[kGrShaderTypeCount];
     };
 
     sk_gpu_test::MemoryCache fPersistentCache;

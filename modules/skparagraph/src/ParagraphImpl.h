@@ -12,7 +12,6 @@
 #include "include/core/SkSpan.h"
 #include "include/core/SkString.h"
 #include "include/core/SkTypes.h"
-#include "include/private/SkBitmaskEnum.h"
 #include "include/private/base/SkOnce.h"
 #include "include/private/base/SkTArray.h"
 #include "include/private/base/SkTemplates.h"
@@ -26,6 +25,7 @@
 #include "modules/skparagraph/src/Run.h"
 #include "modules/skparagraph/src/TextLine.h"
 #include "modules/skunicode/include/SkUnicode.h"
+#include "src/base/SkBitmaskEnum.h"
 #include "src/core/SkTHash.h"
 
 #include <memory>
@@ -62,9 +62,8 @@ struct StyleBlock {
 };
 
 struct ResolvedFontDescriptor {
-
     ResolvedFontDescriptor(TextIndex index, SkFont font)
-        : fFont(font), fTextStart(index) { }
+            : fFont(std::move(font)), fTextStart(index) {}
     SkFont fFont;
     TextIndex fTextStart;
 };
@@ -95,14 +94,14 @@ public:
                   skia_private::TArray<Block, true> blocks,
                   skia_private::TArray<Placeholder, true> placeholders,
                   sk_sp<FontCollection> fonts,
-                  std::shared_ptr<SkUnicode> unicode);
+                  sk_sp<SkUnicode> unicode);
 
     ParagraphImpl(const std::u16string& utf16text,
                   ParagraphStyle style,
                   skia_private::TArray<Block, true> blocks,
                   skia_private::TArray<Placeholder, true> placeholders,
                   sk_sp<FontCollection> fonts,
-                  std::shared_ptr<SkUnicode> unicode);
+                  sk_sp<SkUnicode> unicode);
 
     ~ParagraphImpl() override;
 
@@ -117,6 +116,8 @@ public:
     void getLineMetrics(std::vector<LineMetrics>&) override;
     PositionWithAffinity getGlyphPositionAtCoordinate(SkScalar dx, SkScalar dy) override;
     SkRange<size_t> getWordBoundary(unsigned offset) override;
+
+    bool getApplyRoundingHack() const { return fParagraphStyle.getApplyRoundingHack(); }
 
     size_t lineNumber() override { return fLines.size(); }
 
@@ -185,6 +186,8 @@ public:
     }
 
     int32_t unresolvedGlyphs() override;
+    std::unordered_set<SkUnichar> unresolvedCodepoints() override;
+    void addUnresolvedCodepoints(TextRange textRange);
 
     void setState(InternalState state);
     sk_sp<SkPicture> getPicture() { return fPicture; }
@@ -206,15 +209,24 @@ public:
     void updateBackgroundPaint(size_t from, size_t to, SkPaint paint) override;
 
     void visit(const Visitor&) override;
+    void extendedVisit(const ExtendedVisitor&) override;
+    int getPath(int lineNumber, SkPath* dest) override;
+    bool containsColorFontOrBitmap(SkTextBlob* textBlob) override;
+    bool containsEmoji(SkTextBlob* textBlob) override;
 
     int getLineNumberAt(TextIndex codeUnitIndex) const override;
+    int getLineNumberAtUTF16Offset(size_t codeUnitIndex) override;
     bool getLineMetricsAt(int lineNumber, LineMetrics* lineMetrics) const override;
     TextRange getActualTextRange(int lineNumber, bool includeSpaces) const override;
     bool getGlyphClusterAt(TextIndex codeUnitIndex, GlyphClusterInfo* glyphInfo) override;
     bool getClosestGlyphClusterAt(SkScalar dx,
                                   SkScalar dy,
                                   GlyphClusterInfo* glyphInfo) override;
+
+    bool getGlyphInfoAtUTF16Offset(size_t codeUnitIndex, GlyphInfo* graphemeInfo) override;
+    bool getClosestUTF16GlyphInfoAt(SkScalar dx, SkScalar dy, GlyphInfo* graphemeInfo) override;
     SkFont getFontAt(TextIndex codeUnitIndex) const override;
+    SkFont getFontAtUTF16Offset(size_t codeUnitIndex) override;
     std::vector<FontInfo> getFonts() const override;
 
     InternalLineMetrics getEmptyMetrics() const { return fEmptyMetrics; }
@@ -232,7 +244,7 @@ public:
         return (fCodeUnitProperties[index] & property) == property;
     }
 
-    SkUnicode* getUnicode() { return fUnicode.get(); }
+    sk_sp<SkUnicode> getUnicode() { return fUnicode; }
 
 private:
     friend class ParagraphBuilder;
@@ -270,6 +282,7 @@ private:
     skia_private::TArray<size_t, true> fUTF16IndexForUTF8Index;
     SkOnce fillUTF16MappingOnce;
     size_t fUnresolvedGlyphs;
+    std::unordered_set<SkUnichar> fUnresolvedCodepoints;
 
     skia_private::TArray<TextLine, false> fLines;   // kFormatted   (cached: width, max lines, ellipsis, text align)
     sk_sp<SkPicture> fPicture;          // kRecorded    (cached: text styles)
@@ -283,7 +296,7 @@ private:
     SkScalar fOldHeight;
     SkScalar fMaxWidthWithTrailingSpaces;
 
-    std::shared_ptr<SkUnicode> fUnicode;
+    sk_sp<SkUnicode> fUnicode;
     bool fHasLineBreaks;
     bool fHasWhitespacesInside;
     TextIndex fTrailingSpaces;

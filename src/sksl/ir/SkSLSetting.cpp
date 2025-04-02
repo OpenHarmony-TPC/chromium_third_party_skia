@@ -8,6 +8,7 @@
 #include "src/sksl/ir/SkSLSetting.h"
 
 #include "include/core/SkTypes.h"
+#include "src/base/SkNoDestructor.h"
 #include "src/core/SkTHash.h"
 #include "src/sksl/SkSLBuiltinTypes.h"
 #include "src/sksl/SkSLContext.h"
@@ -27,7 +28,7 @@ using CapsLookupTable = THashMap<std::string_view, Setting::CapsPtr>;
 
 static const CapsLookupTable& caps_lookup_table() {
     // Create a lookup table that converts strings into the equivalent ShaderCaps member-pointers.
-    static CapsLookupTable* sCapsLookupTable = new CapsLookupTable({
+    static SkNoDestructor<CapsLookupTable> sCapsLookupTable(CapsLookupTable{
         CapsLookupTable::Pair("mustDoOpBetweenFloorAndAbs",
                               &ShaderCaps::fMustDoOpBetweenFloorAndAbs),
         CapsLookupTable::Pair("mustGuardDivisionEvenAfterExplicitZeroCheck",
@@ -64,7 +65,7 @@ std::unique_ptr<Expression> Setting::Convert(const Context& context,
                                              const std::string_view& name) {
     SkASSERT(context.fConfig);
 
-    if (ProgramConfig::IsRuntimeEffect(context.fConfig->fKind)) {
+    if (!ProgramConfig::AllowsPrivateIdentifiers(context.fConfig->fKind)) {
         context.fErrors->error(pos, "name 'sk_Caps' is reserved");
         return nullptr;
     }
@@ -79,19 +80,13 @@ std::unique_ptr<Expression> Setting::Convert(const Context& context,
 }
 
 std::unique_ptr<Expression> Setting::Make(const Context& context, Position pos, CapsPtr capsPtr) {
-    if (context.fCaps) {
-        // We know the caps values--return a boolean literal.
-        return Literal::MakeBool(context, pos, context.fCaps->*capsPtr);
-    }
+    SkASSERT(ProgramConfig::AllowsPrivateIdentifiers(context.fConfig->fKind));
 
-    // We don't know the caps values yet--generate a Setting IRNode.
     return std::make_unique<Setting>(pos, capsPtr, context.fTypes.fBool.get());
 }
 
-std::unique_ptr<Expression> Setting::toLiteral(const Context& context) const {
-    SkASSERT(context.fCaps);
-    return Literal::MakeBool(fPosition, context.fCaps->*fCapsPtr, &this->type());
+std::unique_ptr<Expression> Setting::toLiteral(const ShaderCaps& caps) const {
+    return Literal::MakeBool(fPosition, caps.*fCapsPtr, &this->type());
 }
-
 
 }  // namespace SkSL

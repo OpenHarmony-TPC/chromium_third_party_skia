@@ -8,11 +8,21 @@
 #ifndef SkSVGAttributeParser_DEFINED
 #define SkSVGAttributeParser_DEFINED
 
-#include <vector>
-
+#include "include/core/SkColor.h"
+#include "include/core/SkScalar.h"
+#include "include/core/SkTypes.h"
 #include "include/private/base/SkNoncopyable.h"
 #include "modules/svg/include/SkSVGTypes.h"
+
 #include "src/base/SkTLazy.h"
+
+#include <cstdint>
+#include <cstring>
+#include <tuple>
+#include <vector>
+
+class SkMatrix;
+class SkString;
 
 class SkSVGAttributeParser : public SkNoncopyable {
 public:
@@ -116,9 +126,13 @@ private:
     bool parseLengthUnitToken(SkSVGLength::Unit*);
     bool parseNamedColorToken(SkColor*);
     bool parseHexColorToken(SkColor*);
+    bool parseColorComponentScalarToken(int32_t*);
+    bool parseColorComponentIntegralToken(int32_t*);
+    bool parseColorComponentFractionalToken(int32_t*);
     bool parseColorComponentToken(int32_t*);
     bool parseColorToken(SkColor*);
     bool parseRGBColorToken(SkColor*);
+    bool parseRGBAColorToken(SkColor*);
     bool parseSVGColor(SkSVGColor*, SkSVGColor::Vars&&);
     bool parseSVGColorType(SkSVGColorType*);
     bool parseFuncIRI(SkSVGFuncIRI*);

@@ -8,14 +8,21 @@
 #ifndef SkSVGUse_DEFINED
 #define SkSVGUse_DEFINED
 
+#include "include/core/SkPath.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
+#include "include/private/base/SkAPI.h"
+#include "modules/svg/include/SkSVGNode.h"
 #include "modules/svg/include/SkSVGTransformableNode.h"
 #include "modules/svg/include/SkSVGTypes.h"
+
+class SkSVGRenderContext;
 
 /**
  * Implements support for <use> (reference) elements.
  * (https://www.w3.org/TR/SVG11/struct.html#UseElement)
  */
-class SkSVGUse final : public SkSVGTransformableNode {
+class SK_API SkSVGUse final : public SkSVGTransformableNode {
 public:
     static sk_sp<SkSVGUse> Make() { return sk_sp<SkSVGUse>(new SkSVGUse()); }
 

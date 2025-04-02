@@ -9,7 +9,8 @@
 #define SKSL_STRING
 
 #include "include/core/SkTypes.h"
-#include "include/private/SkSLDefines.h"
+#include "src/base/SkNoDestructor.h"
+#include "src/sksl/SkSLDefines.h"
 
 #include <stdarg.h>
 #include <string>
@@ -32,7 +33,7 @@ inline auto Separator() {
     struct Output {
         const std::string fSpace, fComma;
     };
-    static const Output* kOutput = new Output{{}, {", "}};
+    static const SkNoDestructor<Output> kOutput(Output{{}, {", "}});
 
     return [firstSeparator = true]() mutable -> const std::string& {
         if (firstSeparator) {

@@ -10,9 +10,9 @@
 
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkSamplingOptions.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/private/SkSpinlock.h"
+#include "include/private/base/SkDebug.h"
 #include "include/private/base/SkThreadAnnotations.h"
+#include "src/base/SkSpinlock.h"
 #include "src/gpu/Swizzle.h"
 #include "src/gpu/ganesh/GrSurfaceProxyView.h"
 #include "src/gpu/ganesh/image/SkImage_GaneshBase.h"
@@ -23,6 +23,8 @@
 #include <memory>
 #include <tuple>
 
+class GrBackendFormat;
+class GrBackendTexture;
 class GrDirectContext;
 class GrFragmentProcessor;
 class GrImageContext;
@@ -48,6 +50,7 @@ struct SkRect;
 
 namespace skgpu {
 enum class Mipmapped : bool;
+enum class Protected : bool;
 }
 
 class SkImage_Ganesh final : public SkImage_GaneshBase {
@@ -70,6 +73,7 @@ public:
     SkImage_Base::Type type() const override { return SkImage_Base::Type::kGanesh; }
 
     bool onHasMipmaps() const override;
+    bool onIsProtected() const override;
 
     using SkImage_GaneshBase::onMakeColorTypeAndColorSpace;
     sk_sp<SkImage> onMakeColorTypeAndColorSpace(SkColorType,
@@ -86,6 +90,7 @@ public:
                                      ReadPixelsContext) const override;
 
     void onAsyncRescaleAndReadPixelsYUV420(SkYUVColorSpace,
+                                           bool readAlpha,
                                            sk_sp<SkColorSpace>,
                                            SkIRect srcRect,
                                            SkISize dstSize,
@@ -118,6 +123,8 @@ public:
     bool getExistingBackendTexture(GrBackendTexture* outTexture,
                                    bool flushPendingGrContextIO,
                                    GrSurfaceOrigin* origin) const;
+
+    GrSurfaceOrigin origin() const override { return fOrigin; }
 
 private:
     SkImage_Ganesh(sk_sp<GrDirectContext>,
@@ -158,8 +165,9 @@ private:
         // Queries that should be independent of which proxy is in use.
         size_t gpuMemorySize() const SK_EXCLUDES(fLock);
         skgpu::Mipmapped mipmapped() const SK_EXCLUDES(fLock);
+        skgpu::Protected isProtected() const SK_EXCLUDES(fLock);
 #ifdef SK_DEBUG
-        GrBackendFormat backendFormat() SK_EXCLUDES(fLock);
+        const GrBackendFormat& backendFormat() SK_EXCLUDES(fLock);
 #endif
 
     private:

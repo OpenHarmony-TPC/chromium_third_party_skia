@@ -67,7 +67,7 @@ public:
     void setTraceCoord(const SkIPoint& coord);
 
     /** Attaches the SkSL source to be debugged. */
-    void setSource(std::string source);
+    void setSource(const std::string& source);
 
     /** Serializes a debug trace to JSON which can be parsed by our debugger. */
     bool readTrace(SkStream* r);
@@ -91,7 +91,7 @@ public:
     /** The device-coordinate pixel to trace (controlled by setTraceCoord) */
     SkIPoint fTraceCoord = {};
 
-    /** SkRP stores uniform slot info in fUniformInfo. (In SkVM, they're mixed into fSlotInfo.) */
+    /** SkRP stores uniform slot info in fUniformInfo. (In SkVM, they were mixed into fSlotInfo.) */
     std::vector<SlotDebugInfo> fUniformInfo;
 
     /** A 1:1 mapping of slot numbers to debug information. */

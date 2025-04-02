@@ -124,6 +124,7 @@ public:
     SkScalar addSpacesEvenly(SkScalar space, Cluster* cluster);
     SkScalar addSpacesEvenly(SkScalar space);
     void shift(const Cluster* cluster, SkScalar offset);
+    void extend(const Cluster* cluster, SkScalar offset);
 
     SkScalar calculateHeight(LineMetricStyle ascentStyle, LineMetricStyle descentStyle) const {
         auto ascent = ascentStyle == LineMetricStyle::Typographic ? this->ascent()
@@ -307,6 +308,7 @@ public:
     bool isWhitespaceBreak() const { return fIsWhiteSpaceBreak; }
     bool isIntraWordBreak() const { return fIsIntraWordBreak; }
     bool isHardBreak() const { return fIsHardBreak; }
+    bool isIdeographic() const { return fIsIdeographic; }
 
     bool isSoftBreak() const;
     bool isGraphemeBreak() const;
@@ -359,6 +361,7 @@ private:
     bool fIsWhiteSpaceBreak;
     bool fIsIntraWordBreak;
     bool fIsHardBreak;
+    bool fIsIdeographic;
 };
 
 class InternalLineMetrics {

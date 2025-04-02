@@ -25,10 +25,12 @@
 #include "include/core/SkString.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkTypes.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
-#include "include/gpu/GrTypes.h"
-#include "include/gpu/ganesh/GrTextureGenerator.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/GrExternalTextureGenerator.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "include/private/gpu/ganesh/GrTextureGenerator.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/gpu/ganesh/GrRecordingContextPriv.h"
 #include "src/gpu/ganesh/GrSamplerState.h"
@@ -41,6 +43,10 @@
 
 #include <memory>
 #include <utility>
+
+#if defined(SK_GRAPHITE)
+#include "include/gpu/graphite/Surface.h"
+#endif
 
 class GrRecordingContext;
 
@@ -68,13 +74,9 @@ public:
     ImagePictGM() {}
 
 protected:
-    SkString onShortName() override {
-        return SkString("image-picture");
-    }
+    SkString getName() const override { return SkString("image-picture"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(850, 450);
-    }
+    SkISize getISize() override { return SkISize::Make(850, 450); }
 
     void onOnceBeforeDraw() override {
         const SkRect bounds = SkRect::MakeXYWH(100, 100, 100, 100);
@@ -177,12 +179,16 @@ public:
         sk_sp<SkSurface> surface;
 
         if (fRContext) {
-            surface = SkSurface::MakeRenderTarget(fRContext.get(), skgpu::Budgeted::kYes, info,
-                                                  0, kTopLeft_GrSurfaceOrigin, nullptr);
+            surface = SkSurfaces::RenderTarget(fRContext.get(),
+                                               skgpu::Budgeted::kYes,
+                                               info,
+                                               0,
+                                               kTopLeft_GrSurfaceOrigin,
+                                               nullptr);
         }
 #if defined(SK_GRAPHITE)
         if (skgpu::graphite::Recorder* recorder = canvas->recorder()) {
-            surface = SkSurface::MakeGraphite(recorder, info);
+            surface = SkSurfaces::RenderTarget(recorder, info);
         }
 #endif
 
@@ -196,12 +202,12 @@ public:
 protected:
     GrSurfaceProxyView onGenerateTexture(GrRecordingContext* rContext,
                                          const SkImageInfo& info,
-                                         GrMipmapped mipmapped,
+                                         skgpu::Mipmapped mipmapped,
                                          GrImageTexGenPolicy policy) override {
         SkASSERT(rContext);
         SkASSERT(rContext->priv().matches(fRContext.get()));
 
-        auto [view, _] = skgpu::ganesh::AsView(rContext, fImage, GrMipmapped::kNo);
+        auto [view, _] = skgpu::ganesh::AsView(rContext, fImage, skgpu::Mipmapped::kNo);
         if (!view) {
             return {};
         }
@@ -223,14 +229,6 @@ protected:
                 budgeted,
                 /*label=*/"SurfaceProxyView_GenerateTexture");
     }
-
-#if defined(SK_GRAPHITE)
-    sk_sp<SkImage> onMakeTextureImage(skgpu::graphite::Recorder*,
-                                      const SkImageInfo&,
-                                      skgpu::Mipmapped) override {
-        return fImage;
-    }
-#endif
 
 private:
     sk_sp<GrRecordingContext> fRContext;
@@ -266,13 +264,9 @@ public:
     }
 
 protected:
-    SkString onShortName() override {
-        return fName;
-    }
+    SkString getName() const override { return fName; }
 
-    SkISize onISize() override {
-        return SkISize::Make(960, 450);
-    }
+    SkISize getISize() override { return SkISize::Make(960, 450); }
 
     void onOnceBeforeDraw() override {
         const SkRect bounds = SkRect::MakeXYWH(100, 100, 100, 100);
@@ -317,16 +311,16 @@ protected:
                     auto textureGen = std::unique_ptr<GrTextureGenerator>(
                         static_cast<GrTextureGenerator*>(gen.release()));
                     fImageSubset = SkImages::DeferredFromTextureGenerator(std::move(textureGen))
-                            ->makeSubset(subset, dContext);
+                            ->makeSubset(dContext, subset);
                 } else {
                     fImageSubset = SkImages::DeferredFromGenerator(std::move(gen))
-                            ->makeSubset(subset, dContext);
+                            ->makeSubset(dContext, subset);
                 }
             } else {
 #if defined(SK_GRAPHITE)
                 auto recorder = canvas->recorder();
                 fImageSubset = SkImages::DeferredFromGenerator(std::move(gen))
-                                       ->makeSubset(subset, recorder);
+                                       ->makeSubset(recorder, subset, {});
 #endif
             }
             if (!fImageSubset) {
@@ -362,7 +356,7 @@ protected:
             // The gpu-backed images are drawn in this manner bc the generator backed images
             // aren't considered texture-backed
             auto [view, ct] =
-                    skgpu::ganesh::AsView(canvas->recordingContext(), image, GrMipmapped::kNo);
+                    skgpu::ganesh::AsView(canvas->recordingContext(), image, skgpu::Mipmapped::kNo);
             if (!view) {
                 // show placeholder if we have no texture
                 draw_placeholder(canvas, x, y, image->width(), image->height());

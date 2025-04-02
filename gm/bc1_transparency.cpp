@@ -9,8 +9,9 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkTextureCompressionType.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/SkImageGanesh.h"
 #include "src/core/SkCompressedDataUtils.h"
 #include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrImageContextPriv.h"
@@ -106,7 +107,7 @@ static sk_sp<SkImage> data_to_img(GrDirectContext *direct, sk_sp<SkData> data,
                                   SkTextureCompressionType compression) {
     if (direct) {
         return SkImages::TextureFromCompressedTextureData(
-                direct, std::move(data), kImgWidth, kImgHeight, compression, GrMipmapped::kNo);
+                direct, std::move(data), kImgWidth, kImgHeight, compression, skgpu::Mipmapped::kNo);
     } else {
         return SkImages::RasterFromCompressedTextureData(
                 std::move(data), kImgWidth, kImgHeight, compression);
@@ -163,16 +164,13 @@ public:
     }
 
 protected:
+    SkString getName() const override { return SkString("bc1_transparency"); }
 
-    SkString onShortName() override {
-        return SkString("bc1_transparency");
-    }
-
-    SkISize onISize() override {
+    SkISize getISize() override {
         return SkISize::Make(kImgWidth + 2 * kPad, 2 * kImgHeight + 3 * kPad);
     }
 
-    DrawResult onGpuSetup(SkCanvas* canvas, SkString* errorMsg) override {
+    DrawResult onGpuSetup(SkCanvas* canvas, SkString* errorMsg, GraphiteTestContext*) override {
         auto dContext = GrAsDirectContext(canvas->recordingContext());
         if (dContext && dContext->abandoned()) {
             // This isn't a GpuGM so a null 'context' is okay but an abandoned context

@@ -8,10 +8,11 @@
 #include "gm/gm.h"
 #include "include/core/SkPoint.h"
 #include "include/core/SkRect.h"
-#include "include/gpu/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
 #include "src/core/SkCanvasPriv.h"
 #include "src/gpu/KeyBuilder.h"
 #include "src/gpu/ganesh/GrBuffer.h"
+#include "src/gpu/ganesh/GrCanvas.h"
 #include "src/gpu/ganesh/GrGeometryProcessor.h"
 #include "src/gpu/ganesh/GrGpuBuffer.h"
 #include "src/gpu/ganesh/GrOpFlushState.h"
@@ -274,13 +275,13 @@ namespace skiagm {
  * strides.
  */
 class AttributesGM : public GpuGM {
-    SkString onShortName() override { return SkString("attributes"); }
-    SkISize onISize() override { return {120, 340}; }
+    SkString getName() const override { return SkString("attributes"); }
+    SkISize getISize() override { return {120, 340}; }
     DrawResult onDraw(GrRecordingContext*, SkCanvas*, SkString* errorMsg) override;
 };
 
 DrawResult AttributesGM::onDraw(GrRecordingContext* rc, SkCanvas* canvas, SkString* errorMsg) {
-    auto sdc = SkCanvasPriv::TopDeviceSurfaceDrawContext(canvas);
+    auto sdc = skgpu::ganesh::TopDeviceSurfaceDrawContext(canvas);
     if (!sdc) {
         *errorMsg = kErrorMsg_DrawSkippedGpuOnly;
         return DrawResult::kSkip;

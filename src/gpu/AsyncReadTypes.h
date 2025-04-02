@@ -9,10 +9,16 @@
 
 #include "include/core/SkData.h"
 #include "include/core/SkImage.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkSize.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkDebug.h"
 #include "include/private/base/SkTArray.h"
 #include "src/core/SkMessageBus.h"
-#include <algorithm>
+
+#include <cstddef>
 #include <forward_list>
+#include <utility>
 
 namespace skgpu {
 /**
@@ -146,7 +152,6 @@ public:
                            SkISize dimensions,
                            size_t rowBytes,
                            TClientMappedBufferManager<T, IDType>* manager) {
-        SkASSERT(!result.fTransferBuffer->isMapped());
         const void* mappedData = result.fTransferBuffer->map();
         if (!mappedData) {
             return false;
@@ -216,7 +221,7 @@ private:
         sk_sp<T> fMappedBuffer;
         size_t fRowBytes;
     };
-    skia_private::STArray<3, Plane> fPlanes;
+    skia_private::STArray<4, Plane> fPlanes;
     IDType fIntendedRecipient;
 };
 

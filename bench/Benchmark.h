@@ -8,11 +8,15 @@
 #ifndef Benchmark_DEFINED
 #define Benchmark_DEFINED
 
-#include "include/core/SkPoint.h"
 #include "include/core/SkRefCnt.h"
+#include "include/core/SkSize.h"
 #include "include/core/SkString.h"
 #include "include/private/base/SkTArray.h"
 #include "tools/Registry.h"
+
+#if defined(SK_GRAPHITE)
+#include "include/gpu/graphite/Context.h"
+#endif
 
 #define DEF_BENCH3(code, N) \
     static BenchRegistry gBench##N([](void*) -> Benchmark* { code; });
@@ -39,28 +43,33 @@ public:
 
     const char* getName();
     const char* getUniqueName();
-    SkIPoint getSize();
+    SkISize getSize();
 
-    enum Backend {
-        kNonRendering_Backend,
-        kRaster_Backend,
-        kGPU_Backend,
-        kGraphite_Backend,
-        kPDF_Backend,
-        kHWUI_Backend,
+    enum class Backend {
+        kNonRendering,
+        kRaster,
+        kGanesh,
+        kGraphite,
+        kPDF,
+        kHWUI,
     };
 
     // Call to determine whether the benchmark is intended for
     // the rendering mode.
     virtual bool isSuitableFor(Backend backend) {
-        return backend != kNonRendering_Backend;
+        return backend != Backend::kNonRendering;
     }
 
     // Allows a benchmark to override options used to construct the GrContext.
     virtual void modifyGrContextOptions(GrContextOptions*) {}
 
-    virtual int calculateLoops(int defaultLoops) const {
-        return defaultLoops;
+#if defined(SK_GRAPHITE)
+    virtual void modifyGraphiteContextOptions(skgpu::graphite::ContextOptions*) {}
+#endif
+
+    // Whether or not this benchmark requires multiple samples to get a meaningful result.
+    virtual bool shouldLoop() const {
+        return true;
     }
 
     // Call before draw, allows the benchmark to do setup work outside of the
@@ -106,7 +115,7 @@ protected:
     //   for (int i = 0; i < loops; i++) { <work here> }
     virtual void onDraw(int loops, SkCanvas*) = 0;
 
-    virtual SkIPoint onGetSize();
+    virtual SkISize onGetSize();
 
 private:
     int fUnits = 1;

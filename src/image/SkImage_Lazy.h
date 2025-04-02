@@ -30,8 +30,11 @@ class SkBitmap;
 class SkCachedData;
 class SkData;
 class SkPixmap;
+class SkSurface;
 enum SkColorType : int;
 struct SkIRect;
+
+namespace skgpu { namespace graphite { class Recorder; } }
 
 class SkImage_Lazy : public SkImage_Base {
 public:
@@ -57,19 +60,18 @@ public:
         // a way to provide content for levels other than via SkImageGenerator::generateTexture().
         return false;
     }
+    bool onIsProtected() const override;
+
     bool onReadPixels(GrDirectContext*, const SkImageInfo&, void*, size_t, int srcX, int srcY,
                       CachingHint) const override;
     sk_sp<SkData> onRefEncoded() const override;
-    sk_sp<SkImage> onMakeSubset(const SkIRect&, GrDirectContext*) const override;
-#if defined(SK_GRAPHITE)
-    sk_sp<SkImage> onMakeSubset(const SkIRect&,
-                                skgpu::graphite::Recorder*,
-                                RequiredImageProperties) const override;
-    sk_sp<SkImage> onMakeColorTypeAndColorSpace(SkColorType targetCT,
-                                                sk_sp<SkColorSpace> targetCS,
-                                                skgpu::graphite::Recorder*,
-                                                RequiredImageProperties) const override;
-#endif
+    sk_sp<SkImage> onMakeSubset(GrDirectContext*, const SkIRect&) const override;
+    sk_sp<SkImage> onMakeSubset(skgpu::graphite::Recorder*,
+                                const SkIRect&,
+                                RequiredProperties) const override;
+
+    sk_sp<SkSurface> onMakeSurface(skgpu::graphite::Recorder*, const SkImageInfo&) const override;
+
     bool getROPixels(GrDirectContext*, SkBitmap*, CachingHint) const override;
     SkImage_Base::Type type() const override { return SkImage_Base::Type::kLazy; }
     sk_sp<SkImage> onMakeColorTypeAndColorSpace(SkColorType, sk_sp<SkColorSpace>,
@@ -83,17 +85,11 @@ public:
 
     // Be careful with this. You need to acquire the mutex, as the generator might be shared
     // among several images.
-    //std::unique_ptr<SkImageGenerator> generator() const;
     sk_sp<SharedGenerator> generator() const;
 protected:
     virtual bool readPixelsProxy(GrDirectContext*, const SkPixmap&) const { return false; }
 
 private:
-
-#if defined(SK_GRAPHITE)
-    sk_sp<SkImage> onMakeTextureImage(skgpu::graphite::Recorder*,
-                                      RequiredImageProperties) const override;
-#endif
 
     class ScopedGenerator;
 
@@ -111,12 +107,13 @@ private:
     mutable SkIDChangeListener::List fUniqueIDListeners;
 };
 
+// Ref-counted tuple(SkImageGenerator, SkMutex) which allows sharing one generator among N images
 class SharedGenerator final : public SkNVRefCnt<SharedGenerator> {
 public:
     static sk_sp<SharedGenerator> Make(std::unique_ptr<SkImageGenerator> gen);
 
     // This is thread safe.  It is a const field set in the constructor.
-    const SkImageInfo& getInfo();
+    const SkImageInfo& getInfo() const;
 
     bool isTextureGenerator();
 

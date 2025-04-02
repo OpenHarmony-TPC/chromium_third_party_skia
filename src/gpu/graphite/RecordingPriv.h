@@ -27,15 +27,28 @@ public:
 
     void setFailureResultForFinishedProcs();
 
-#if GRAPHITE_TEST_UTILS
+    bool addCommands(Context*,
+                     CommandBuffer*,
+                     Surface* targetSurface,
+                     SkIVector targetTranslation,
+                     SkIRect targetClip);
+    // This will eventually lead to adding a Usage Ref on the CommandBuffer. For now that is fine
+    // since the only Resource's we are reffing here are Buffers. However, if we ever want to track
+    // Textures or GPU only Buffers as well, we should keep a second list for Refs that we want to
+    // put CommandBuffer refs on.
+    void addResourceRef(sk_sp<Resource> resource);
+
+    TaskList* taskList() { return fRecording->fRootTaskList.get(); }
+
+    uint32_t recorderID() const { return fRecording->fRecorderID; }
+    uint32_t uniqueID() const { return fRecording->fUniqueID; }
+
+#if defined(GPU_TEST_UTILS)
+    bool isTargetProxyInstantiated() const;
     int numVolatilePromiseImages() const;
     int numNonVolatilePromiseImages() const;
     bool hasTasks() const;
 #endif
-
-    bool addCommands(Context*, CommandBuffer*, Surface* replaySurface, SkIVector replayTranslation);
-    void addResourceRef(sk_sp<Resource> resource);
-    void addTask(sk_sp<Task> task);
 
 private:
     explicit RecordingPriv(Recording* recorder) : fRecording(recorder) {}

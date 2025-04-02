@@ -6,13 +6,16 @@
  */
 
 #include "include/core/SkFontMgr.h"
-#include "include/core/SkStream.h"
-#include "include/core/SkTypes.h"
-#include "include/private/base/SkOnce.h"
-#include "src/core/SkFontDescriptor.h"
 
-class SkFontStyle;
-class SkTypeface;
+#include "include/core/SkData.h"
+#include "include/core/SkFontStyle.h"
+#include "include/core/SkStream.h"
+#include "include/core/SkTypeface.h"
+#include "include/core/SkTypes.h"
+
+#include <utility>
+
+struct SkFontArguments;
 
 class SkEmptyFontStyleSet : public SkFontStyleSet {
 public:
@@ -78,6 +81,10 @@ protected:
     sk_sp<SkTypeface> onLegacyMakeTypeface(const char [], SkFontStyle) const override {
         return nullptr;
     }
+
+#if BUILDFLAG(ARKWEB_THEME_FONT)
+    void onInvalidateThemeFont(int fd) override {}
+#endif
 };
 
 static sk_sp<SkFontStyleSet> emptyOnNull(sk_sp<SkFontStyleSet>&& fsset) {
@@ -148,23 +155,12 @@ sk_sp<SkTypeface> SkFontMgr::legacyMakeTypeface(const char familyName[], SkFontS
     return this->onLegacyMakeTypeface(familyName, style);
 }
 
+#if BUILDFLAG(ARKWEB_THEME_FONT)
+void SkFontMgr::InvalidateThemeFont(int fd) { this->onInvalidateThemeFont(fd); }
+#endif
+
 sk_sp<SkFontMgr> SkFontMgr::RefEmpty() {
-    static SkEmptyFontMgr singleton;
-    return sk_ref_sp(&singleton);
-}
-
-// A global function pointer that's not declared, but can be overriden at startup by test tools.
-sk_sp<SkFontMgr> (*gSkFontMgr_DefaultFactory)() = nullptr;
-
-sk_sp<SkFontMgr> SkFontMgr::RefDefault() {
-    static SkOnce once;
-    static sk_sp<SkFontMgr> singleton;
-
-    once([]{
-        sk_sp<SkFontMgr> fm = gSkFontMgr_DefaultFactory ? gSkFontMgr_DefaultFactory()
-                                                        : SkFontMgr::Factory();
-        singleton = fm ? std::move(fm) : RefEmpty();
-    });
+    static sk_sp<SkFontMgr> singleton(new SkEmptyFontMgr);
     return singleton;
 }
 

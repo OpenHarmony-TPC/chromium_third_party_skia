@@ -1,8 +1,10 @@
+layout(local_size_x = 64) in;
+
 layout(metal, binding = 0) buffer ssbo {
     atomicUint globalCounter;
 };
 
-workgroup atomicUint localCounter;
+workgroup atomic_uint localCounter;  // atomic_uint is a synonym for atomicUint
 
 void main() {
     // Initialize the local counter.

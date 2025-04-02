@@ -16,17 +16,27 @@
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkSurface.h"
-#include "include/gpu/GrBackendSemaphore.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrBackendSemaphore.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/MutableTextureState.h"
 #include "include/gpu/ganesh/SkImageGanesh.h"
-#include "include/gpu/vk/GrVkBackendContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "include/gpu/ganesh/gl/GrGLBackendSurface.h"
+#include "include/gpu/ganesh/vk/GrVkBackendSemaphore.h"
+#include "include/gpu/ganesh/vk/GrVkBackendSurface.h"
+#include "include/gpu/ganesh/vk/GrVkDirectContext.h"
+#include "include/gpu/ganesh/vk/GrVkTypes.h"
+#include "include/gpu/vk/VulkanBackendContext.h"
 #include "include/gpu/vk/VulkanExtensions.h"
+#include "include/gpu/vk/VulkanMemoryAllocator.h"
+#include "include/gpu/vk/VulkanMutableTextureState.h"
 #include "src/base/SkAutoMalloc.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 #include "src/gpu/ganesh/GrGpu.h"
 #include "src/gpu/ganesh/GrProxyProvider.h"
 #include "src/gpu/ganesh/SkGr.h"
-#include "src/gpu/ganesh/gl/GrGLDefines_impl.h"
+#include "src/gpu/ganesh/gl/GrGLDefines.h"
 #include "src/gpu/ganesh/gl/GrGLUtil.h"
 #include "tests/Test.h"
 #include "tools/gpu/GrContextFactory.h"
@@ -147,7 +157,7 @@ private:
 };
 
 bool EGLTestHelper::init(skiatest::Reporter* reporter) {
-    fGLESContextInfo = fFactory.getContextInfo(sk_gpu_test::GrContextFactory::kGLES_ContextType);
+    fGLESContextInfo = fFactory.getContextInfo(skgpu::ContextType::kGLES);
     fDirectContext = fGLESContextInfo.directContext();
     fGLCtx = fGLESContextInfo.glContext();
     if (!fDirectContext || !fGLCtx) {
@@ -269,7 +279,7 @@ sk_sp<SkImage> EGLTestHelper::importHardwareBufferForRead(skiatest::Reporter* re
     textureInfo.fID = fTexID;
     textureInfo.fFormat = GR_GL_RGBA8;
 
-    GrBackendTexture backendTex(DEV_W, DEV_H, GrMipmapped::kNo, textureInfo);
+    auto backendTex = GrBackendTextures::MakeGL(DEV_W, DEV_H, skgpu::Mipmapped::kNo, textureInfo);
     REPORTER_ASSERT(reporter, backendTex.isValid());
 
     sk_sp<SkImage> image = SkImages::BorrowTextureFrom(fDirectContext,
@@ -297,15 +307,16 @@ sk_sp<SkSurface> EGLTestHelper::importHardwareBufferForWrite(skiatest::Reporter*
     textureInfo.fID = fTexID;
     textureInfo.fFormat = GR_GL_RGBA8;
 
-    GrBackendTexture backendTex(DEV_W, DEV_H, GrMipmapped::kNo, textureInfo);
+    auto backendTex = GrBackendTextures::MakeGL(DEV_W, DEV_H, skgpu::Mipmapped::kNo, textureInfo);
     REPORTER_ASSERT(reporter, backendTex.isValid());
 
-    sk_sp<SkSurface> surface = SkSurface::MakeFromBackendTexture(fDirectContext,
-                                                                 backendTex,
-                                                                 kTopLeft_GrSurfaceOrigin,
-                                                                 0,
-                                                                 kRGBA_8888_SkColorType,
-                                                                 nullptr, nullptr);
+    sk_sp<SkSurface> surface = SkSurfaces::WrapBackendTexture(fDirectContext,
+                                                              backendTex,
+                                                              kTopLeft_GrSurfaceOrigin,
+                                                              0,
+                                                              kRGBA_8888_SkColorType,
+                                                              nullptr,
+                                                              nullptr);
 
     if (!surface) {
         ERRORF(reporter, "Failed to make wrapped GL SkSurface");
@@ -316,8 +327,8 @@ sk_sp<SkSurface> EGLTestHelper::importHardwareBufferForWrite(skiatest::Reporter*
 }
 
 bool EGLTestHelper::flushSurfaceAndSignalSemaphore(skiatest::Reporter* reporter,
-                                                      sk_sp<SkSurface> surface) {
-    surface->flushAndSubmit();
+                                                   sk_sp<SkSurface> surface) {
+    skgpu::ganesh::FlushAndSubmit(surface);
 
     EGLDisplay eglDisplay = eglGetCurrentDisplay();
     EGLSyncKHR eglsync = fEGLCreateSyncKHR(eglDisplay, EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
@@ -366,7 +377,7 @@ bool EGLTestHelper::importAndWaitOnSemaphore(skiatest::Reporter* reporter, int f
 
 void EGLTestHelper::doClientSync() {
     this->directContext()->flush();
-    this->directContext()->submit(true);
+    this->directContext()->submit(GrSyncCpu::kYes);
 }
 #endif  // SK_GL
 
@@ -413,8 +424,9 @@ public:
     }
 
     void releaseSurfaceToExternal(SkSurface* surface) override {
-        skgpu::MutableTextureState newState(VK_IMAGE_LAYOUT_UNDEFINED, VK_QUEUE_FAMILY_EXTERNAL);
-        surface->flush({}, &newState);
+        skgpu::MutableTextureState newState = skgpu::MutableTextureStates::MakeVulkan(
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_QUEUE_FAMILY_EXTERNAL);
+        fDirectContext->flush(surface, {}, &newState);
     }
 
     void cleanup() override {
@@ -453,7 +465,7 @@ public:
             return;
         }
 
-        fDirectContext->submit(true);
+        fDirectContext->submit(GrSyncCpu::kYes);
     }
 
     bool flushSurfaceAndSignalSemaphore(skiatest::Reporter* reporter, sk_sp<SkSurface>) override;
@@ -515,7 +527,7 @@ private:
 
     VkDevice fDevice = VK_NULL_HANDLE;
 
-    GrVkBackendContext fBackendContext;
+    skgpu::VulkanBackendContext fBackendContext;
     sk_sp<GrDirectContext> fDirectContext;
 };
 
@@ -583,7 +595,7 @@ bool VulkanTestHelper::init(skiatest::Reporter* reporter) {
     ACQUIRE_DEVICE_VK_PROC(ImportSemaphoreFdKHR);
     ACQUIRE_DEVICE_VK_PROC(DestroySemaphore);
 
-    fDirectContext = GrDirectContext::MakeVulkan(fBackendContext);
+    fDirectContext = GrDirectContexts::MakeVulkan(fBackendContext);
     REPORTER_ASSERT(reporter, fDirectContext.get());
     if (!fDirectContext) {
         return false;
@@ -749,6 +761,13 @@ bool VulkanTestHelper::importHardwareBuffer(skiatest::Reporter* reporter,
             }
         }
     }
+
+    // Fallback to align with GrAHardwareBufferUtils
+    if (!foundHeap && hwbProps.memoryTypeBits) {
+        typeIndex = ffs(hwbProps.memoryTypeBits) - 1;
+        foundHeap = true;
+    }
+
     if (!foundHeap) {
         ERRORF(reporter, "Failed to find valid heap for imported memory");
         return false;
@@ -815,7 +834,7 @@ sk_sp<SkImage> VulkanTestHelper::importHardwareBufferForRead(skiatest::Reporter*
         return nullptr;
     }
 
-    GrBackendTexture backendTex(DEV_W, DEV_H, imageInfo);
+    auto backendTex = GrBackendTextures::MakeVk(DEV_W, DEV_H, imageInfo);
 
     sk_sp<SkImage> wrappedImage = SkImages::BorrowTextureFrom(fDirectContext.get(),
                                                               backendTex,
@@ -905,13 +924,13 @@ bool VulkanTestHelper::setupSemaphoreForSignaling(skiatest::Reporter* reporter,
         ERRORF(reporter, "Failed to create signal semaphore, err: %d", err);
         return false;
     }
-    beSemaphore->initVulkan(semaphore);
+    *beSemaphore = GrBackendSemaphores::MakeVk(semaphore);
     return true;
 }
 
 bool VulkanTestHelper::exportSemaphore(skiatest::Reporter* reporter,
                                        const GrBackendSemaphore& beSemaphore) {
-    VkSemaphore semaphore = beSemaphore.vkSemaphore();
+    VkSemaphore semaphore = GrBackendSemaphores::GetVkSemaphore(beSemaphore);
     if (VK_NULL_HANDLE == semaphore) {
         ERRORF(reporter, "Invalid vulkan handle in export call");
         return false;
@@ -960,8 +979,7 @@ bool VulkanTestHelper::importAndWaitOnSemaphore(skiatest::Reporter* reporter, in
         return false;
     }
 
-    GrBackendSemaphore beSemaphore;
-    beSemaphore.initVulkan(semaphore);
+    GrBackendSemaphore beSemaphore = GrBackendSemaphores::MakeVk(semaphore);
     if (!surface->wait(1, &beSemaphore)) {
         ERRORF(reporter, "Failed to add wait semaphore to surface");
         fVkDestroySemaphore(fDevice, semaphore, nullptr);
@@ -977,14 +995,15 @@ sk_sp<SkSurface> VulkanTestHelper::importHardwareBufferForWrite(skiatest::Report
         return nullptr;
     }
 
-    GrBackendTexture backendTex(DEV_W, DEV_H, imageInfo);
+    auto backendTex = GrBackendTextures::MakeVk(DEV_W, DEV_H, imageInfo);
 
-    sk_sp<SkSurface> surface = SkSurface::MakeFromBackendTexture(fDirectContext.get(),
-                                                                 backendTex,
-                                                                 kTopLeft_GrSurfaceOrigin,
-                                                                 0,
-                                                                 kRGBA_8888_SkColorType,
-                                                                 nullptr, nullptr);
+    sk_sp<SkSurface> surface = SkSurfaces::WrapBackendTexture(fDirectContext.get(),
+                                                              backendTex,
+                                                              kTopLeft_GrSurfaceOrigin,
+                                                              0,
+                                                              kRGBA_8888_SkColorType,
+                                                              nullptr,
+                                                              nullptr);
 
     if (!surface.get()) {
         ERRORF(reporter, "Failed to create wrapped Vulkan SkSurface");
@@ -1261,7 +1280,7 @@ void run_test(skiatest::Reporter* reporter, const GrContextOptions& options,
     SkImageInfo imageInfo = SkImageInfo::Make(DEV_W, DEV_H, kRGBA_8888_SkColorType,
                                               kPremul_SkAlphaType, nullptr);
 
-    sk_sp<SkSurface> dstSurf = SkSurface::MakeRenderTarget(
+    sk_sp<SkSurface> dstSurf = SkSurfaces::RenderTarget(
             direct, skgpu::Budgeted::kNo, imageInfo, 0, kTopLeft_GrSurfaceOrigin, nullptr, false);
     if (!dstSurf.get()) {
         ERRORF(reporter, "Failed to create destination SkSurface");

@@ -8,8 +8,7 @@
 #ifndef GrOnFlushResourceProvider_DEFINED
 #define GrOnFlushResourceProvider_DEFINED
 
-#include "include/core/SkSpan.h"
-#include "src/gpu/ganesh/GrDeferredUpload.h"
+#include "src/gpu/AtlasTypes.h"
 
 class GrCaps;
 class GrDrawingManager;
@@ -53,11 +52,11 @@ class GrOnFlushResourceProvider {
 public:
     explicit GrOnFlushResourceProvider(GrDrawingManager* drawingMgr) : fDrawingMgr(drawingMgr) {}
 
-    bool SK_WARN_UNUSED_RESULT instantiateProxy(GrSurfaceProxy*);
+    [[nodiscard]] bool instantiateProxy(GrSurfaceProxy*);
 
     const GrCaps* caps() const;
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     bool failFlushTimeCallbacks() const;
 #endif
 

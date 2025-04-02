@@ -7,8 +7,7 @@
 #ifndef GrAHardwareBufferImageGenerator_DEFINED
 #define GrAHardwareBufferImageGenerator_DEFINED
 
-#include "include/gpu/ganesh/GrTextureGenerator.h"
-
+#include "include/private/gpu/ganesh/GrTextureGenerator.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 
 class GrGpuResource;
@@ -45,8 +44,10 @@ private:
 
     bool onIsValid(GrRecordingContext*) const override;
 
-    GrSurfaceProxyView onGenerateTexture(GrRecordingContext*, const SkImageInfo&,
-                                         GrMipmapped, GrImageTexGenPolicy) override;
+    GrSurfaceProxyView onGenerateTexture(GrRecordingContext*,
+                                         const SkImageInfo&,
+                                         skgpu::Mipmapped,
+                                         GrImageTexGenPolicy) override;
 
     GrSurfaceOrigin origin() const override { return fSurfaceOrigin; }
 

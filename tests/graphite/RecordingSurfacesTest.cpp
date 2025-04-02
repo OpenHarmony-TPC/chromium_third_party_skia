@@ -10,12 +10,18 @@
 #include "include/core/SkBitmap.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkPixmap.h"
+#include "include/core/SkPoint.h"
 #include "include/gpu/graphite/Context.h"
 #include "include/gpu/graphite/Recorder.h"
 #include "include/gpu/graphite/Recording.h"
+#include "include/gpu/graphite/Surface.h"
+#include "src/gpu/graphite/RecordingPriv.h"
 #include "src/gpu/graphite/Surface_Graphite.h"
 
 namespace skgpu::graphite {
+
+constexpr SkIVector kNoOffset = SkIVector::Make(0, 0);
+constexpr SkIRect kEmptyClip = SkIRect::MakeEmpty();
 
 using DrawCallback = std::function<void(SkCanvas*)>;
 
@@ -29,14 +35,15 @@ void run_test(skiatest::Reporter* reporter,
               Context* context,
               SkISize surfaceSize,
               SkISize recordingSize,
-              SkISize replayOffset,
+              SkIVector replayOffset,
+              SkIRect replayClip,
               DrawCallback draw,
               const std::vector<Expectation>& expectations) {
     const SkImageInfo surfaceImageInfo = SkImageInfo::Make(
             surfaceSize, SkColorType::kRGBA_8888_SkColorType, SkAlphaType::kPremul_SkAlphaType);
 
     std::unique_ptr<Recorder> surfaceRecorder = context->makeRecorder();
-    sk_sp<SkSurface> surface = SkSurface::MakeGraphite(surfaceRecorder.get(), surfaceImageInfo);
+    sk_sp<SkSurface> surface = SkSurfaces::RenderTarget(surfaceRecorder.get(), surfaceImageInfo);
     Surface* graphiteSurface = static_cast<Surface*>(surface.get());
     const TextureInfo& textureInfo = graphiteSurface->backingTextureProxy()->textureInfo();
 
@@ -56,8 +63,7 @@ void run_test(skiatest::Reporter* reporter,
     std::unique_ptr<Recording> recording = recorder->snap();
 
     // Play back recording.
-    context->insertRecording(
-            {recording.get(), surface.get(), {replayOffset.fWidth, replayOffset.fHeight}});
+    context->insertRecording({recording.get(), surface.get(), replayOffset, replayClip});
 
     // Read pixels.
     SkBitmap bitmap;
@@ -70,20 +76,20 @@ void run_test(skiatest::Reporter* reporter,
     }
 
     // Veryify expectations are met and recording is uninstantiated.
-    REPORTER_ASSERT(reporter, !recording->isTargetProxyInstantiated());
+    REPORTER_ASSERT(reporter, !recording->priv().isTargetProxyInstantiated());
     for (const Expectation& e : expectations) {
         SkColor4f color = pixmap.getColor4f(e.fX, e.fY);
 #ifdef SK_DEBUG
         if (color != e.fColor) {
             SkDebugf("Wrong color\n\texpected: %f %f %f %f\n\tactual: %f %f %f %f",
-                     color.fR,
-                     color.fG,
-                     color.fB,
-                     color.fA,
                      e.fColor.fR,
                      e.fColor.fG,
                      e.fColor.fB,
-                     e.fColor.fA);
+                     e.fColor.fA,
+                     color.fR,
+                     color.fG,
+                     color.fB,
+                     color.fA);
         }
 #endif
         REPORTER_ASSERT(reporter, color == e.fColor);
@@ -91,21 +97,54 @@ void run_test(skiatest::Reporter* reporter,
 }
 
 // Tests that clear does not clear an entire replayed-to surface if recorded onto a smaller surface.
-DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestClear, reporter, context) {
+DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestClear, reporter, context,
+                                   CtsEnforcement::kApiLevel_V) {
     SkISize surfaceSize = SkISize::Make(8, 4);
     SkISize recordingSize = SkISize::Make(4, 4);
-    SkISize replayOffset = SkISize::Make(0, 0);
 
     auto draw = [](SkCanvas* canvas) { canvas->clear(SkColors::kRed); };
 
     std::vector<Expectation> expectations = {{0, 0, SkColors::kRed},
                                              {4, 0, SkColors::kTransparent}};
 
-    run_test(reporter, context, surfaceSize, recordingSize, replayOffset, draw, expectations);
+    run_test(reporter,
+             context,
+             surfaceSize,
+             recordingSize,
+             kNoOffset,
+             kEmptyClip,
+             draw,
+             expectations);
+}
+
+// Tests that a draw is translated correctly when replayed with an offset.
+DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestDraw, reporter, context,
+                                   CtsEnforcement::kNextRelease) {
+    SkISize surfaceSize = SkISize::Make(8, 4);
+    SkISize recordingSize = SkISize::Make(4, 4);
+    SkIVector replayOffset = SkIVector::Make(4, 0);
+
+    auto draw = [](SkCanvas* canvas) {
+        canvas->drawIRect(SkIRect::MakeXYWH(0, 0, 4, 4), SkPaint(SkColors::kRed));
+    };
+
+
+    std::vector<Expectation> expectations = {{0, 0, SkColors::kTransparent},
+                                             {4, 0, SkColors::kRed}};
+
+    run_test(reporter,
+             context,
+             surfaceSize,
+             recordingSize,
+             replayOffset,
+             kEmptyClip,
+             draw,
+             expectations);
 }
 
 // Tests that writePixels is translated correctly when replayed with an offset.
-DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestWritePixels, reporter, context) {
+DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestWritePixels, reporter, context,
+                                   CtsEnforcement::kApiLevel_V) {
     SkBitmap bitmap;
     bitmap.allocN32Pixels(4, 4, true);
     SkCanvas bitmapCanvas(bitmap);
@@ -115,18 +154,26 @@ DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestWritePixels, reporter, c
 
     SkISize surfaceSize = SkISize::Make(8, 4);
     SkISize recordingSize = SkISize::Make(4, 4);
-    SkISize replayOffset = SkISize::Make(4, 0);
+    SkIVector replayOffset = SkIVector::Make(4, 0);
 
     auto draw = [&bitmap](SkCanvas* canvas) { canvas->writePixels(bitmap, 0, 0); };
 
     std::vector<Expectation> expectations = {{0, 0, SkColors::kTransparent},
                                              {4, 0, SkColors::kRed}};
 
-    run_test(reporter, context, surfaceSize, recordingSize, replayOffset, draw, expectations);
+    run_test(reporter,
+             context,
+             surfaceSize,
+             recordingSize,
+             replayOffset,
+             kEmptyClip,
+             draw,
+             expectations);
 }
 
 // Tests that the result of writePixels is cropped correctly when offscreen.
-DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestWritePixelsOffscreen, reporter, context) {
+DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestWritePixelsOffscreen, reporter, context,
+                                   CtsEnforcement::kApiLevel_V) {
     SkBitmap bitmap;
     bitmap.allocN32Pixels(4, 4, true);
     SkCanvas bitmapCanvas(bitmap);
@@ -138,13 +185,77 @@ DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestWritePixelsOffscreen, re
 
     SkISize surfaceSize = SkISize::Make(4, 4);
     SkISize recordingSize = SkISize::Make(4, 4);
-    SkISize replayOffset = SkISize::Make(-2, -2);
+    SkIVector replayOffset = SkIVector::Make(-2, -2);
 
     auto draw = [&bitmap](SkCanvas* canvas) { canvas->writePixels(bitmap, 0, 0); };
 
     std::vector<Expectation> expectations = {{0, 0, SkColors::kGreen}};
 
-    run_test(reporter, context, surfaceSize, recordingSize, replayOffset, draw, expectations);
+    run_test(reporter,
+             context,
+             surfaceSize,
+             recordingSize,
+             replayOffset,
+             kEmptyClip,
+             draw,
+             expectations);
+}
+
+// Tests that the result of a draw is cropped correctly with a provided clip on replay.
+DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestDrawWithClip, reporter, context,
+                                   CtsEnforcement::kNextRelease) {
+    SkISize surfaceSize = SkISize::Make(8, 4);
+    SkISize recordingSize = SkISize::Make(4, 4);
+    SkIVector replayOffset = SkIVector::Make(4, 0);
+    SkIRect replayClip = SkIRect::MakeXYWH(0, 0, 2, 4);
+
+    auto draw = [](SkCanvas* canvas) {
+        canvas->drawIRect(SkIRect::MakeWH(4, 4), SkPaint(SkColors::kRed));
+    };
+
+    std::vector<Expectation> expectations = {{0, 0, SkColors::kTransparent},
+                                             {4, 0, SkColors::kRed},
+                                             {6, 0, SkColors::kTransparent}};
+
+    run_test(reporter,
+             context,
+             surfaceSize,
+             recordingSize,
+             replayOffset,
+             replayClip,
+             draw,
+             expectations);
+}
+
+// Tests that the result of writePixels is cropped correctly with a provided clip on replay.
+DEF_GRAPHITE_TEST_FOR_ALL_CONTEXTS(RecordingSurfacesTestWritePixelsWithClip, reporter, context,
+                                   CtsEnforcement::kNextRelease) {
+    SkBitmap bitmap;
+    bitmap.allocN32Pixels(4, 4, true);
+    SkCanvas bitmapCanvas(bitmap);
+    SkPaint paint;
+    paint.setColor(SkColors::kRed);
+    bitmapCanvas.drawIRect(SkIRect::MakeXYWH(0, 0, 4, 4), paint);
+
+    SkISize surfaceSize = SkISize::Make(8, 4);
+    SkISize recordingSize = SkISize::Make(4, 4);
+    SkIVector replayOffset = SkIVector::Make(4, 0);
+    SkIRect replayClip = SkIRect::MakeXYWH(0, 0, 2, 4);
+
+    auto draw = [&bitmap](SkCanvas* canvas) { canvas->writePixels(bitmap, 0, 0); };
+
+    std::vector<Expectation> expectations = {{0, 0, SkColors::kTransparent},
+                                             {4, 0, SkColors::kRed},
+                                             {6, 0, SkColors::kTransparent}};
+
+    run_test(reporter,
+             context,
+             surfaceSize,
+             recordingSize,
+             replayOffset,
+             replayClip,
+             draw,
+             expectations);
 }
 
 }  // namespace skgpu::graphite

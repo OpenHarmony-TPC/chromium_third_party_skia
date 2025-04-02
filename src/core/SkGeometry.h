@@ -11,6 +11,7 @@
 #include "include/core/SkPoint.h"
 #include "include/core/SkScalar.h"
 #include "include/core/SkTypes.h"
+#include "include/private/base/SkFloatingPoint.h"
 #include "src/base/SkVx.h"
 
 #include <cstring>
@@ -348,12 +349,12 @@ struct SkConic {
     }
 
     void setW(SkScalar w) {
-        if (SkScalarIsFinite(w)) {
+        if (SkIsFinite(w)) {
             SkASSERT(w > 0);
         }
 
         // Guard against bad weights by forcing them to 1.
-        fW = w > 0 && SkScalarIsFinite(w) ? w : 1;
+        fW = w > 0 && SkIsFinite(w) ? w : 1;
     }
 
     /**
@@ -364,7 +365,7 @@ struct SkConic {
      *  be used.
      */
     void evalAt(SkScalar t, SkPoint* pos, SkVector* tangent = nullptr) const;
-    bool SK_WARN_UNUSED_RESULT chopAt(SkScalar t, SkConic dst[2]) const;
+    [[nodiscard]] bool chopAt(SkScalar t, SkConic dst[2]) const;
     void chopAt(SkScalar t1, SkScalar t2, SkConic* dst) const;
     void chop(SkConic dst[2]) const;
 
@@ -384,7 +385,7 @@ struct SkConic {
      *  Chop this conic into N quads, stored continguously in pts[], where
      *  N = 1 << pow2. The amount of storage needed is (1 + 2 * N)
      */
-    int SK_SPI SK_WARN_UNUSED_RESULT chopIntoQuadsPOW2(SkPoint pts[], int pow2) const;
+    [[nodiscard]] int SK_SPI chopIntoQuadsPOW2(SkPoint pts[], int pow2) const;
 
     float findMidTangent() const;
     bool findXExtrema(SkScalar* t) const;

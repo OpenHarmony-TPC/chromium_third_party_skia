@@ -11,6 +11,9 @@ It follows the example of:
  - linux_amd64_toolchain_config.bzl
 """
 
+# https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/action_names.bzl
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+
 # https://github.com/bazelbuild/bazel/blob/master/tools/cpp/cc_toolchain_config_lib.bzl
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
@@ -21,9 +24,6 @@ load(
     "tool",
     "variable_with_value",
 )
-
-# https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/cc/action_names.bzl
-load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load(":clang_layering_check.bzl", "make_layering_check_features")
 
 # The location of the created clang toolchain.
@@ -58,11 +58,13 @@ def _mac_toolchain_info(ctx):
             # "If the compiler has --sysroot support, then these paths should use %sysroot%
             #  rather than the include path"
             # https://bazel.build/rules/lib/cc_common#create_cc_toolchain_config_info.cxx_builtin_include_directories
-            "%sysroot%/symlinks/xcode/MacSDK/Frameworks/",
+            "%sysroot%/symlinks/xcode/MacSDK/System/Library/Frameworks/",
         ],
+        # If `ctx.attr.cpu` is blank (which is declared as optional below), this config will target
+        # the host CPU. Specifying a target_cpu allows this config to be used for cross compilation.
+        target_cpu = ctx.attr.cpu,
         # These are required, but do nothing
         compiler = "",
-        target_cpu = "",
         target_libc = "",
         target_system_name = "",
         toolchain_identifier = "",
@@ -81,6 +83,13 @@ def _import_platform_constraints():
     for constraint in _platform_constraints_to_import:
         private_attr = _platform_constraints_to_import[constraint]
         rule_attributes[private_attr] = attr.label(default = constraint)
+
+    # Define an optional attribute to allow the target architecture to be explicitly specified (e.g.
+    # when selecting a cross-compilation toolchain).
+    rule_attributes["cpu"] = attr.string(
+        mandatory = False,
+        values = ["arm64", "x64"],
+    )
     return rule_attributes
 
 def _has_platform_constraint(ctx, official_constraint_name):
@@ -223,12 +232,6 @@ def _make_action_configs():
         tools = [ar_tool],
     )
 
-    objc_archive_action = action_config(
-        action_name = ACTION_NAMES.objc_archive,
-        flag_sets = common_archive_flags,
-        tools = [ar_tool],
-    )
-
     action_configs = [
         assemble_action,
         c_compile_action,
@@ -238,7 +241,6 @@ def _make_action_configs():
         cpp_link_nodeps_dynamic_library_action,
         cpp_link_static_library_action,
         linkstamp_compile_action,
-        objc_archive_action,
         objc_compile_action,
         objcpp_compile_action,
         preprocess_assemble_action,
@@ -285,7 +287,7 @@ def _make_default_flags():
                     # We want -iframework so Clang hides diagnostic warnings from those header
                     # files we include. -F does not hide those.
                     "-iframework",
-                    XCODE_MACSDK_SYMLINK + "/Frameworks",
+                    XCODE_MACSDK_SYMLINK + "/System/Library/Frameworks",
                     # We do not want clang to search in absolute paths for files. This makes
                     # Bazel think we are using an outside resource and fail the compile.
                     "-no-canonical-prefixes",
@@ -346,6 +348,9 @@ def _make_default_flags():
                     # https://github.com/llvm/llvm-project/blob/d61341768cf0cff7ceeaddecc2f769b5c1b901c4/lld/MachO/InputFiles.cpp#L1418-L1420
                     "-Wl,-syslibroot",
                     XCODE_MACSDK_SYMLINK,
+                    # This path is relative to the syslibroot above, and we want lld to look in the
+                    # Frameworks symlink that was created in download_mac_toolchain.bzl.
+                    "-F/System/Library/Frameworks",
                     "-fuse-ld=lld",
                     "-std=c++17",
                     "-stdlib=libc++",
@@ -415,6 +420,13 @@ def _make_diagnostic_flags():
             enabled = False,
             flag_sets = [
                 cxx_diagnostic,
+                link_diagnostic,
+            ],
+        ),
+        feature(
+            "link_diagnostic",
+            enabled = False,
+            flag_sets = [
                 link_diagnostic,
             ],
         ),

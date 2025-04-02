@@ -7,12 +7,13 @@
 
 #include "tools/DDLPromiseImageHelper.h"
 
-#include "include/core/SkDeferredDisplayListRecorder.h"
 #include "include/core/SkPicture.h"
 #include "include/core/SkSerialProcs.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrYUVABackendTextures.h"
+#include "include/gpu/ganesh/GrContextThreadSafeProxy.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrYUVABackendTextures.h"
 #include "include/gpu/ganesh/SkImageGanesh.h"
+#include "include/private/chromium/SkImageChromium.h"
 #include "src/codec/SkCodecImageGenerator.h"
 #include "src/core/SkCachedData.h"
 #include "src/core/SkMipmap.h"
@@ -82,7 +83,7 @@ PromiseImageCallbackContext::~PromiseImageCallbackContext() {
 void PromiseImageCallbackContext::setBackendTexture(const GrBackendTexture& backendTexture) {
     SkASSERT(!fPromiseImageTexture);
     SkASSERT(fBackendFormat == backendTexture.getBackendFormat());
-    fPromiseImageTexture = SkPromiseImageTexture::Make(backendTexture);
+    fPromiseImageTexture = GrPromiseImageTexture::Make(backendTexture);
 }
 
 void PromiseImageCallbackContext::destroyBackendTexture() {
@@ -336,10 +337,8 @@ sk_sp<SkImage> DDLPromiseImageHelper::CreatePromiseImages(const void* rawData,
             backendFormats[i] = curImage.backendFormat(i);
             contexts[i] = curImage.refCallbackContext(i).release();
         }
-        GrYUVABackendTextureInfo yuvaBackendTextures(yuvaInfo,
-                                                     backendFormats,
-                                                     GrMipmapped::kNo,
-                                                     kTopLeft_GrSurfaceOrigin);
+        GrYUVABackendTextureInfo yuvaBackendTextures(
+                yuvaInfo, backendFormats, skgpu::Mipmapped::kNo, kTopLeft_GrSurfaceOrigin);
         image = SkImages::PromiseTextureFromYUVA(
                 procContext->fThreadSafeProxy,
                 yuvaBackendTextures,

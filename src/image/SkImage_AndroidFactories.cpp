@@ -11,6 +11,8 @@
 
 #include "include/android/SkImageAndroid.h"
 
+#include "include/android/AHardwareBufferUtils.h"
+#include "include/android/GrAHardwareBufferUtils.h"
 #include "include/core/SkAlphaType.h"
 #include "include/core/SkBitmap.h"
 #include "include/core/SkColorSpace.h"
@@ -23,11 +25,11 @@
 #include "include/core/SkSize.h"
 #include "include/core/SkSurface.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrContextThreadSafeProxy.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrContextThreadSafeProxy.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/gpu/ganesh/SkImageGanesh.h"
 #include "include/private/base/SkAssert.h"
 #include "include/private/gpu/ganesh/GrImageContext.h"
@@ -37,7 +39,6 @@
 #include "src/gpu/RefCntedCallback.h"
 #include "src/gpu/SkBackingFit.h"
 #include "src/gpu/ganesh/GrAHardwareBufferImageGenerator.h"
-#include "src/gpu/ganesh/GrAHardwareBufferUtils_impl.h"
 #include "src/gpu/ganesh/GrBackendTextureImageGenerator.h"
 #include "src/gpu/ganesh/GrBackendUtils.h"
 #include "src/gpu/ganesh/GrCaps.h"
@@ -45,6 +46,7 @@
 #include "src/gpu/ganesh/GrColorSpaceXform.h"
 #include "src/gpu/ganesh/GrContextThreadSafeProxyPriv.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
+#include "src/gpu/ganesh/GrDrawingManager.h"
 #include "src/gpu/ganesh/GrFragmentProcessor.h"
 #include "src/gpu/ganesh/GrGpu.h"
 #include "src/gpu/ganesh/GrGpuResourcePriv.h"
@@ -67,6 +69,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <utility>
+
+#include <android/hardware_buffer.h>
 
 namespace SkImages {
 
@@ -125,7 +129,7 @@ sk_sp<SkImage> TextureFromAHardwareBufferWithData(GrDirectContext* dContext,
     auto releaseHelper = skgpu::RefCntedCallback::Make(deleteImageProc, deleteImageCtx);
 
     SkColorType colorType =
-            GrAHardwareBufferUtils::GetSkColorTypeFromBufferFormat(bufferDesc.format);
+            AHardwareBufferUtils::GetSkColorTypeFromBufferFormat(bufferDesc.format);
 
     GrColorType grColorType = SkColorTypeToGrColorType(colorType);
 
@@ -161,35 +165,11 @@ sk_sp<SkImage> TextureFromAHardwareBufferWithData(GrDirectContext* dContext,
     surfaceContext.writePixels(dContext, pixmap, {0, 0});
 
     GrSurfaceProxy* p[1] = {surfaceContext.asSurfaceProxy()};
-    drawingManager->flush(p, SkSurface::BackendSurfaceAccess::kNoAccess, {}, nullptr);
+    drawingManager->flush(p, SkSurfaces::BackendSurfaceAccess::kNoAccess, {}, nullptr);
 
     return image;
 }
 
 }  // namespace SkImages
-
-#if !defined(SK_DISABLE_LEGACY_IMAGE_FACTORIES)
-
-sk_sp<SkImage> MakeFromAHardwareBuffer(AHardwareBuffer* hardwareBuffer, SkAlphaType alphaType) {
-    return SkImages::DeferredFromAHardwareBuffer(hardwareBuffer, alphaType);
-}
-
-sk_sp<SkImage> MakeFromAHardwareBuffer(AHardwareBuffer* hardwareBuffer,
-                                       SkAlphaType alphaType,
-                                       sk_sp<SkColorSpace> colorSpace,
-                                       GrSurfaceOrigin surfaceOrigin) {
-    return SkImages::DeferredFromAHardwareBuffer(
-            hardwareBuffer, alphaType, colorSpace, surfaceOrigin);
-}
-
-sk_sp<SkImage> MakeFromAHardwareBufferWithData(GrDirectContext* context,
-                                               const SkPixmap& pixmap,
-                                               AHardwareBuffer* hardwareBuffer,
-                                               GrSurfaceOrigin surfaceOrigin) {
-    return SkImages::TextureFromAHardwareBufferWithData(
-            context, pixmap, hardwareBuffer, surfaceOrigin);
-}
-
-#endif // SK_DISABLE_LEGACY_IMAGE_FACTORIES
 
 #endif // defined(SK_BUILD_FOR_ANDROID) && __ANDROID_API__ >= 26
