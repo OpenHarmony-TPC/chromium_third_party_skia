@@ -10,10 +10,11 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkPaint.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
 #include "include/gpu/ganesh/SkImageGanesh.h"
 #include "src/base/SkRandom.h"
 #include "src/core/SkCanvasPriv.h"
+#include "src/gpu/ganesh/GrCanvas.h"
 #include "src/gpu/ganesh/GrOpsTypes.h"
 #include "src/gpu/ganesh/SkGr.h"
 #include "src/gpu/ganesh/SurfaceDrawContext.h"
@@ -54,7 +55,7 @@ public:
         if (kDrawMode == DrawMode::kBatch && kImageMode == ImageMode::kNone) {
             // Currently the bulk color quad API is only available on
             // skgpu::ganesh::SurfaceDrawContext
-            return backend == kGPU_Backend;
+            return backend == Backend::kGanesh;
         } else {
             return this->INHERITED::isSuitableFor(backend);
         }
@@ -62,7 +63,7 @@ public:
 
 protected:
     SkRect         fRects[kRectCount];
-    sk_sp<SkImage> fImages[kImageCount];
+    sk_sp<SkImage> fImages[kImageCount > 0 ? kImageCount : 1];
     SkColor4f      fColors[kRectCount];
     SkString       fName;
 
@@ -148,7 +149,7 @@ protected:
         paint.setColor(SK_ColorWHITE);
         paint.setAntiAlias(true);
 
-        auto sdc = SkCanvasPriv::TopDeviceSurfaceDrawContext(canvas);
+        auto sdc = skgpu::ganesh::TopDeviceSurfaceDrawContext(canvas);
         SkMatrix view = canvas->getLocalToDeviceAs3x3();
         SkSurfaceProps props;
         GrPaint grPaint;
@@ -261,7 +262,7 @@ protected:
         }
     }
 
-    SkIPoint onGetSize() override {
+    SkISize onGetSize() override {
         return { kWidth, kHeight };
     }
 

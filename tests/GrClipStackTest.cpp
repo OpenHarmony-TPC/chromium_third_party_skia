@@ -21,12 +21,11 @@
 #include "include/core/SkString.h"
 #include "include/core/SkSurfaceProps.h"
 #include "include/core/SkTypes.h"
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/mock/GrMockTypes.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/mock/GrMockTypes.h"
 #include "include/private/base/SkTo.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
-#include "src/core/SkMatrixProvider.h"
 #include "src/core/SkRRectPriv.h"
 #include "src/gpu/ResourceKey.h"
 #include "src/gpu/SkBackingFit.h"
@@ -109,7 +108,7 @@ private:
              ClipStack::ClipState expectedState,
              std::vector<ClipStack::Element> actual,
              std::vector<ClipStack::Element> expected)
-        : fName(name)
+        : fName(std::move(name))
         , fElements(std::move(actual))
         , fDeviceBounds(deviceBounds)
         , fExpectedElements(std::move(expected))
@@ -342,8 +341,7 @@ void TestCase::run(const std::vector<int>& order,
                    skiatest::Reporter* reporter) const {
     SkASSERT(fElements.size() == order.size());
 
-    SkMatrixProvider matrixProvider(SkMatrix::I());
-    ClipStack cs(fDeviceBounds, &matrixProvider, false);
+    ClipStack cs(fDeviceBounds, &SkMatrix::I(), false);
 
     if (policy == SavePolicy::kAtStart) {
         cs.save();
@@ -1757,14 +1755,13 @@ DEF_TEST(ClipStack_DiffRects, r) {
     GrMockOptions options;
     options.fMaxWindowRectangles = 8;
 
-    SkMatrixProvider matrixProvider = SkMatrix::I();
     sk_sp<GrDirectContext> context = GrDirectContext::MakeMock(&options);
     std::unique_ptr<SurfaceDrawContext> sdc = SurfaceDrawContext::Make(
             context.get(), GrColorType::kRGBA_8888, SkColorSpace::MakeSRGB(),
             SkBackingFit::kExact, kDeviceBounds.size(), SkSurfaceProps(),
             /*label=*/{});
 
-    ClipStack cs(kDeviceBounds, &matrixProvider, false);
+    ClipStack cs(kDeviceBounds, &SkMatrix::I(), false);
 
     cs.save();
     for (int y = 0; y < 10; ++y) {
@@ -1912,14 +1909,13 @@ DEF_TEST(ClipStack_Shader, r) {
 
     sk_sp<SkShader> shader = SkShaders::Color({0.f, 0.f, 0.f, 0.5f}, nullptr);
 
-    SkMatrixProvider matrixProvider = SkMatrix::I();
     sk_sp<GrDirectContext> context = GrDirectContext::MakeMock(nullptr);
     std::unique_ptr<SurfaceDrawContext> sdc = SurfaceDrawContext::Make(
             context.get(), GrColorType::kRGBA_8888, SkColorSpace::MakeSRGB(),
             SkBackingFit::kExact, kDeviceBounds.size(), SkSurfaceProps(),
             /*label=*/{});
 
-    ClipStack cs(kDeviceBounds, &matrixProvider, false);
+    ClipStack cs(kDeviceBounds, &SkMatrix::I(), false);
     cs.save();
     cs.clipShader(shader);
 
@@ -1966,14 +1962,13 @@ DEF_TEST(ClipStack_SimpleApply, r) {
     using ClipStack = skgpu::ganesh::ClipStack;
     using SurfaceDrawContext = skgpu::ganesh::SurfaceDrawContext;
 
-    SkMatrixProvider matrixProvider = SkMatrix::I();
     sk_sp<GrDirectContext> context = GrDirectContext::MakeMock(nullptr);
     std::unique_ptr<SurfaceDrawContext> sdc = SurfaceDrawContext::Make(
             context.get(), GrColorType::kRGBA_8888, SkColorSpace::MakeSRGB(),
             SkBackingFit::kExact, kDeviceBounds.size(), SkSurfaceProps(),
             /*label=*/{});
 
-    ClipStack cs(kDeviceBounds, &matrixProvider, false);
+    ClipStack cs(kDeviceBounds, &SkMatrix::I(), false);
 
     // Offscreen draw is kClippedOut
     {
@@ -2096,7 +2091,7 @@ static void disable_tessellation_atlas(GrContextOptions* options) {
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(ClipStack_SWMask,
-                             sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             skgpu::IsRenderingContext,
                              r,
                              ctxInfo,
                              disable_tessellation_atlas,
@@ -2109,8 +2104,7 @@ DEF_GANESH_TEST_FOR_CONTEXTS(ClipStack_SWMask,
             context, GrColorType::kRGBA_8888, nullptr, SkBackingFit::kExact, kDeviceBounds.size(),
             SkSurfaceProps(), /*label=*/{});
 
-    SkMatrixProvider matrixProvider = SkMatrix::I();
-    std::unique_ptr<ClipStack> cs(new ClipStack(kDeviceBounds, &matrixProvider, false));
+    std::unique_ptr<ClipStack> cs(new ClipStack(kDeviceBounds, &SkMatrix::I(), false));
 
     auto addMaskRequiringClip = [&](SkScalar x, SkScalar y, SkScalar radius) {
         SkPath path;

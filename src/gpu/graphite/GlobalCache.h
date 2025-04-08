@@ -9,11 +9,12 @@
 #define skgpu_graphite_GlobalCache_DEFINED
 
 #include "include/core/SkRefCnt.h"
-#include "include/private/SkSpinlock.h"
 #include "include/private/base/SkTArray.h"
+#include "src/base/SkSpinlock.h"
 #include "src/core/SkLRUCache.h"
 #include "src/gpu/ResourceKey.h"
 
+#include <functional>
 
 namespace skgpu::graphite {
 
@@ -42,18 +43,31 @@ public:
 
     // Find a cached GraphicsPipeline that matches the associated key.
     sk_sp<GraphicsPipeline> findGraphicsPipeline(const UniqueKey&) SK_EXCLUDES(fSpinLock);
+
     // Associate the given pipeline with the key. If the key has already had a separate pipeline
     // associated with the key, that pipeline is returned and the passed-in pipeline is discarded.
     // Otherwise, the passed-in pipeline is held by the GlobalCache and also returned back.
     sk_sp<GraphicsPipeline> addGraphicsPipeline(const UniqueKey&,
                                                 sk_sp<GraphicsPipeline>) SK_EXCLUDES(fSpinLock);
 
-#if GRAPHITE_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     int numGraphicsPipelines() const SK_EXCLUDES(fSpinLock);
     void resetGraphicsPipelines() SK_EXCLUDES(fSpinLock);
+    void forEachGraphicsPipeline(
+            const std::function<void(const UniqueKey&, const GraphicsPipeline*)>& fn)
+            SK_EXCLUDES(fSpinLock);
+
+    struct PipelineStats {
+        int fGraphicsCacheHits = 0;
+        int fGraphicsCacheMisses = 0;
+        int fGraphicsCacheAdditions = 0;
+        int fGraphicsRaces = 0;
+    };
+
+    PipelineStats getStats() const SK_EXCLUDES(fSpinLock);
 #endif
 
-    // Find amd add operations for ComputePipelines, with the same pattern as GraphicsPipelines.
+    // Find and add operations for ComputePipelines, with the same pattern as GraphicsPipelines.
     sk_sp<ComputePipeline> findComputePipeline(const UniqueKey&) SK_EXCLUDES(fSpinLock);
     sk_sp<ComputePipeline> addComputePipeline(const UniqueKey&,
                                               sk_sp<ComputePipeline>) SK_EXCLUDES(fSpinLock);
@@ -82,8 +96,12 @@ private:
     ComputePipelineCache  fComputePipelineCache  SK_GUARDED_BY(fSpinLock);
 
     skia_private::TArray<sk_sp<Resource>> fStaticResource SK_GUARDED_BY(fSpinLock);
+
+#if defined(GPU_TEST_UTILS)
+    PipelineStats fStats SK_GUARDED_BY(fSpinLock);
+#endif
 };
 
-} // namespace skgpu::graphite
+}  // namespace skgpu::graphite
 
 #endif // skgpu_graphite_GlobalCache_DEFINED

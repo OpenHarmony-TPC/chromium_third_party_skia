@@ -11,16 +11,23 @@
 #include "src/gpu/graphite/CommandBuffer.h"
 
 #include "include/gpu/vk/VulkanTypes.h"
+#include "src/gpu/graphite/DrawPass.h"
+#include "src/gpu/graphite/vk/VulkanGraphicsPipeline.h"
+#include "src/gpu/graphite/vk/VulkanResourceProvider.h"
 
 namespace skgpu::graphite {
 
-class VulkanResourceProvider;
+class VulkanBuffer;
+class VulkanDescriptorSet;
 class VulkanSharedContext;
+class VulkanTexture;
+class Buffer;
 
 class VulkanCommandBuffer final : public CommandBuffer {
 public:
     static std::unique_ptr<VulkanCommandBuffer> Make(const VulkanSharedContext*,
-                                                     VulkanResourceProvider*);
+                                                     VulkanResourceProvider*,
+                                                     Protected);
     ~VulkanCommandBuffer() override;
 
     bool setNewCommandBufferResources() override;
@@ -34,11 +41,9 @@ public:
     void addBufferMemoryBarrier(const Resource* resource,
                                 VkPipelineStageFlags srcStageMask,
                                 VkPipelineStageFlags dstStageMask,
-                                bool byRegion,
                                 VkBufferMemoryBarrier* barrier);
     void addBufferMemoryBarrier(VkPipelineStageFlags srcStageMask,
                                 VkPipelineStageFlags dstStageMask,
-                                bool byRegion,
                                 VkBufferMemoryBarrier* barrier);
     void addImageMemoryBarrier(const Resource*,
                                VkPipelineStageFlags srcStageMask,
@@ -50,22 +55,80 @@ private:
     VulkanCommandBuffer(VkCommandPool pool,
                         VkCommandBuffer primaryCommandBuffer,
                         const VulkanSharedContext* sharedContext,
-                        VulkanResourceProvider* resourceProvider);
+                        VulkanResourceProvider* resourceProvider,
+                        Protected);
+
+    ResourceProvider* resourceProvider() const override { return fResourceProvider; }
 
     void onResetCommandBuffer() override;
 
     void begin();
     void end();
 
-    // TODO: The virtuals in this class have not yet been implemented as we still haven't
-    // implemented the objects they use.
+    void addWaitSemaphores(size_t numWaitSemaphores,
+                           const BackendSemaphore* waitSemaphores) override;
+    void addSignalSemaphores(size_t numWaitSemaphores,
+                             const BackendSemaphore* signalSemaphores) override;
+    void prepareSurfaceForStateUpdate(SkSurface* targetSurface,
+                                      const MutableTextureState* newState) override;
+
     bool onAddRenderPass(const RenderPassDesc&,
+                         SkIRect renderPassBounds,
                          const Texture* colorTexture,
                          const Texture* resolveTexture,
                          const Texture* depthStencilTexture,
-                         SkRect viewport,
+                         SkIRect viewport,
                          const DrawPassList&) override;
-    bool onAddComputePass(const DispatchGroupList&) override;
+
+    bool beginRenderPass(const RenderPassDesc&,
+                         SkIRect renderPassBounds,
+                         const Texture* colorTexture,
+                         const Texture* resolveTexture,
+                         const Texture* depthStencilTexture);
+    void endRenderPass();
+
+    void addDrawPass(const DrawPass*);
+
+    // Track descriptor changes for binding prior to draw calls
+    void recordBufferBindingInfo(const BindBufferInfo& info, UniformSlot);
+    // Either both arguments are non-null, or both must be null (to reset or handle just the
+    // dstCopy intrinsic w/o requiring a DrawPass command).
+    void recordTextureAndSamplerDescSet(
+            const DrawPass*, const DrawPassCommands::BindTexturesAndSamplers*);
+
+    void bindTextureSamplers();
+    void bindUniformBuffers();
+    void syncDescriptorSets();
+
+    void bindGraphicsPipeline(const GraphicsPipeline*);
+    void setBlendConstants(float* blendConstants);
+    void bindDrawBuffers(const BindBufferInfo& vertices,
+                         const BindBufferInfo& instances,
+                         const BindBufferInfo& indices,
+                         const BindBufferInfo& indirect);
+    void bindVertexBuffers(const Buffer* vertexBuffer, size_t vertexOffset,
+                           const Buffer* instanceBuffer, size_t instanceOffset);
+    void bindInputBuffer(const Buffer* buffer, VkDeviceSize offset, uint32_t binding);
+    void bindIndexBuffer(const Buffer* indexBuffer, size_t offset);
+    void bindIndirectBuffer(const Buffer* indirectBuffer, size_t offset);
+    void setScissor(unsigned int left, unsigned int top,
+                    unsigned int width, unsigned int height);
+
+    void draw(PrimitiveType type, unsigned int baseVertex, unsigned int vertexCount);
+    void drawIndexed(PrimitiveType type, unsigned int baseIndex, unsigned int indexCount,
+                     unsigned int baseVertex);
+    void drawInstanced(PrimitiveType type,
+                       unsigned int baseVertex, unsigned int vertexCount,
+                       unsigned int baseInstance, unsigned int instanceCount);
+    void drawIndexedInstanced(PrimitiveType type, unsigned int baseIndex,
+                              unsigned int indexCount, unsigned int baseVertex,
+                              unsigned int baseInstance, unsigned int instanceCount);
+    void drawIndirect(PrimitiveType type);
+    void drawIndexedIndirect(PrimitiveType type);
+
+    // TODO: The virtuals in this class have not yet been implemented as we still haven't
+    // implemented the objects they use.
+    bool onAddComputePass(DispatchGroupSpan) override;
 
     bool onCopyBufferToBuffer(const Buffer* srcBuffer,
                               size_t srcOffset,
@@ -84,7 +147,13 @@ private:
     bool onCopyTextureToTexture(const Texture* src,
                                 SkIRect srcRect,
                                 const Texture* dst,
-                                SkIPoint dstPoint) override;
+                                SkIPoint dstPoint,
+                                int mipLevel) override;
+
+    bool pushConstants(VkShaderStageFlags stageFlags,
+                       uint32_t offset,
+                       uint32_t size,
+                       const void* values);
 
     bool onSynchronizeBufferToCpu(const Buffer*, bool* outDidResultInWork) override;
     bool onClearBuffer(const Buffer*, size_t offset, size_t size) override;
@@ -101,9 +170,21 @@ private:
                          void* barrier);
     void submitPipelineBarriers(bool forSelfDependency = false);
 
-#ifdef SK_ENABLE_PIET_GPU
-    void onRenderPietScene(const skgpu::piet::Scene& scene, const Texture* target) override;
-#endif
+    // Update the intrinsic constant uniform buffer and binding to reflect the updated viewport.
+    // The resource provider is responsible for finding a suitable buffer and managing its lifetime.
+    bool updateIntrinsicUniforms(SkIRect viewport);
+
+    bool loadMSAAFromResolve(const RenderPassDesc&,
+                             VulkanTexture& resolveTexture,
+                             SkISize dstDimensions,
+                             SkIRect nativeBounds);
+    bool updateAndBindLoadMSAAInputAttachment(const VulkanTexture& resolveTexture);
+    void updateBuffer(const VulkanBuffer* buffer,
+                      const void* data,
+                      size_t dataSize,
+                      size_t dstOffset = 0);
+    void nextSubpass();
+    void setViewport(SkIRect viewport);
 
     VkCommandPool fPool;
     VkCommandBuffer fPrimaryCommandBuffer;
@@ -112,14 +193,17 @@ private:
 
     // begin() has been called, but not end()
     bool fActive = false;
+    // Track whether there is currently an active render pass (beginRenderPass has been called, but
+    // not endRenderPass)
+    bool fActiveRenderPass = false;
 
-    // Stores a pointer to the current active render pass (i.e. begin has been called but not
-    // end). A nullptr means there is no active render pass. The VulkanCommandBuffer does not own
-    // the render pass.
-    // TODO: define what this is once we implement renderpasses.
-    const void* fActiveRenderPass = nullptr;
+    const VulkanGraphicsPipeline* fActiveGraphicsPipeline = nullptr;
 
     VkFence fSubmitFence = VK_NULL_HANDLE;
+
+    // Current semaphores
+    skia_private::STArray<1, VkSemaphore> fWaitSemaphores;
+    skia_private::STArray<1, VkSemaphore> fSignalSemaphores;
 
     // Tracking of memory barriers so that we can submit them all in a batch together.
     skia_private::STArray<1, VkBufferMemoryBarrier> fBufferBarriers;
@@ -128,9 +212,29 @@ private:
     VkPipelineStageFlags fSrcStageMask = 0;
     VkPipelineStageFlags fDstStageMask = 0;
 
+    // Track whether certain descriptor sets need to be bound
+    bool fBindUniformBuffers = false;
+    bool fBindTextureSamplers = false;
+
+    std::array<BindBufferInfo, VulkanGraphicsPipeline::kNumUniformBuffers> fUniformBuffersToBind;
+    VkDescriptorSet fTextureSamplerDescSetToBind = VK_NULL_HANDLE;
+
+    int fNumTextureSamplers = 0;
+
+    VkBuffer fBoundInputBuffers[VulkanGraphicsPipeline::kNumInputBuffers];
+    size_t fBoundInputBufferOffsets[VulkanGraphicsPipeline::kNumInputBuffers];
+
+    VkBuffer fBoundIndexBuffer = VK_NULL_HANDLE;
+    VkBuffer fBoundIndirectBuffer = VK_NULL_HANDLE;
+    size_t fBoundIndexBufferOffset = 0;
+    size_t fBoundIndirectBufferOffset = 0;
+
+    float fCachedBlendConstant[4];
+
+    class IntrinsicConstantsManager;
+    std::unique_ptr<IntrinsicConstantsManager> fIntrinsicConstants;
 };
 
 } // namespace skgpu::graphite
 
 #endif // skgpu_graphite_VulkanCommandBuffer_DEFINED
-

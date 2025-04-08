@@ -24,8 +24,8 @@ public:
              bool doLooping);
     ~SKPBench() override;
 
-    int calculateLoops(int defaultLoops) const override {
-        return fDoLooping ? defaultLoops : 1;
+    bool shouldLoop() const override {
+        return fDoLooping;
     }
 
     void getGpuStats(SkCanvas*,
@@ -40,7 +40,7 @@ protected:
     void onPerCanvasPostDraw(SkCanvas*) override;
     bool isSuitableFor(Backend backend) override;
     void onDraw(int loops, SkCanvas* canvas) override;
-    SkIPoint onGetSize() override;
+    SkISize onGetSize() override;
 
     virtual void drawMPDPicture();
     virtual void drawPicture();

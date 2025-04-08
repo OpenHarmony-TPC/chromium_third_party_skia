@@ -14,10 +14,10 @@
 #include "include/core/SkSize.h"
 #include "include/core/SkSurface.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/private/base/SkAssert.h"
 #include "include/private/gpu/ganesh/GrImageContext.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
@@ -124,17 +124,26 @@ inline size_t SkImage_Ganesh::ProxyChooser::gpuMemorySize() const {
     return size;
 }
 
-inline GrMipmapped SkImage_Ganesh::ProxyChooser::mipmapped() const {
+inline skgpu::Mipmapped SkImage_Ganesh::ProxyChooser::mipmapped() const {
     SkAutoSpinlock hold(fLock);
-    GrMipmapped mipmapped = fStableProxy->asTextureProxy()->mipmapped();
+    skgpu::Mipmapped mipmapped = fStableProxy->asTextureProxy()->mipmapped();
     if (fVolatileProxy) {
         SkASSERT(fVolatileProxy->asTextureProxy()->mipmapped() == mipmapped);
     }
     return mipmapped;
 }
 
+inline skgpu::Protected SkImage_Ganesh::ProxyChooser::isProtected() const {
+    SkAutoSpinlock hold(fLock);
+    skgpu::Protected isProtected = fStableProxy->asTextureProxy()->isProtected();
+    if (fVolatileProxy) {
+        SkASSERT(fVolatileProxy->asTextureProxy()->isProtected() == isProtected);
+    }
+    return isProtected;
+}
+
 #ifdef SK_DEBUG
-inline GrBackendFormat SkImage_Ganesh::ProxyChooser::backendFormat() {
+inline const GrBackendFormat& SkImage_Ganesh::ProxyChooser::backendFormat() {
     SkAutoSpinlock hold(fLock);
     if (fVolatileProxy) {
         SkASSERT(fVolatileProxy->backendFormat() == fStableProxy->backendFormat());
@@ -195,7 +204,7 @@ sk_sp<SkImage> SkImage_Ganesh::MakeWithVolatileSrc(sk_sp<GrRecordingContext> rCo
     SkASSERT(rContext);
     SkASSERT(volatileSrc);
     SkASSERT(volatileSrc.proxy()->asTextureProxy());
-    GrMipmapped mm = volatileSrc.proxy()->asTextureProxy()->mipmapped();
+    skgpu::Mipmapped mm = volatileSrc.proxy()->asTextureProxy()->mipmapped();
     sk_sp<GrRenderTask> copyTask;
     auto copy = GrSurfaceProxy::Copy(rContext.get(),
                                      volatileSrc.refProxy(),
@@ -231,7 +240,11 @@ bool SkImage_Ganesh::surfaceMustCopyOnWrite(GrSurfaceProxy* surfaceProxy) const 
     return fChooser.surfaceMustCopyOnWrite(surfaceProxy);
 }
 
-bool SkImage_Ganesh::onHasMipmaps() const { return fChooser.mipmapped() == GrMipmapped::kYes; }
+bool SkImage_Ganesh::onHasMipmaps() const { return fChooser.mipmapped() == skgpu::Mipmapped::kYes; }
+
+bool SkImage_Ganesh::onIsProtected() const {
+    return fChooser.isProtected() == skgpu::Protected::kYes;
+}
 
 GrSemaphoresSubmitted SkImage_Ganesh::flush(GrDirectContext* dContext,
                                             const GrFlushInfo& info) const {
@@ -247,7 +260,7 @@ GrSemaphoresSubmitted SkImage_Ganesh::flush(GrDirectContext* dContext,
 
     sk_sp<GrSurfaceProxy> proxy = fChooser.chooseProxy(dContext);
     return dContext->priv().flushSurface(
-            proxy.get(), SkSurface::BackendSurfaceAccess::kNoAccess, info);
+            proxy.get(), SkSurfaces::BackendSurfaceAccess::kNoAccess, info);
 }
 
 bool SkImage_Ganesh::getExistingBackendTexture(GrBackendTexture* outTexture,
@@ -300,8 +313,13 @@ sk_sp<SkImage> SkImage_Ganesh::onMakeColorTypeAndColorSpace(SkColorType targetCT
         return nullptr;
     }
 
+    sk_sp<GrSurfaceProxy> proxy = fChooser.chooseProxy(dContext);
+
     auto sfc = dContext->priv().makeSFCWithFallback(GrImageInfo(info, this->dimensions()),
-                                                    SkBackingFit::kExact);
+                                                    SkBackingFit::kExact,
+                                                    /* sampleCount= */ 1,
+                                                    skgpu::Mipmapped::kNo,
+                                                    proxy->isProtected());
     if (!sfc) {
         return nullptr;
     }
@@ -310,7 +328,7 @@ sk_sp<SkImage> SkImage_Ganesh::onMakeColorTypeAndColorSpace(SkColorType targetCT
     info = info.makeColorType(ct);
 
     // Draw this image's texture into the SFC.
-    auto [view, _] = skgpu::ganesh::AsView(dContext, this, GrMipmapped(this->hasMipmaps()));
+    auto [view, _] = skgpu::ganesh::AsView(dContext, this, skgpu::Mipmapped(this->hasMipmaps()));
     auto texFP = GrTextureEffect::Make(std::move(view), this->alphaType());
     auto colorFP =
             GrColorSpaceXformEffect::Make(std::move(texFP), this->imageInfo().colorInfo(), info);
@@ -353,6 +371,7 @@ void SkImage_Ganesh::onAsyncRescaleAndReadPixels(const SkImageInfo& info,
 }
 
 void SkImage_Ganesh::onAsyncRescaleAndReadPixelsYUV420(SkYUVColorSpace yuvColorSpace,
+                                                       bool readAlpha,
                                                        sk_sp<SkColorSpace> dstColorSpace,
                                                        SkIRect srcRect,
                                                        SkISize dstSize,
@@ -373,6 +392,7 @@ void SkImage_Ganesh::onAsyncRescaleAndReadPixelsYUV420(SkYUVColorSpace yuvColorS
     }
     ctx->asyncRescaleAndReadPixelsYUV420(dContext,
                                          yuvColorSpace,
+                                         readAlpha,
                                          std::move(dstColorSpace),
                                          srcRect,
                                          dstSize,
@@ -386,7 +406,7 @@ void SkImage_Ganesh::generatingSurfaceIsDeleted() { fChooser.makeVolatileProxySt
 
 std::tuple<GrSurfaceProxyView, GrColorType> SkImage_Ganesh::asView(
         GrRecordingContext* recordingContext,
-        GrMipmapped mipmapped,
+        skgpu::Mipmapped mipmapped,
         GrImageTexGenPolicy policy) const {
     if (!fContext->priv().matches(recordingContext)) {
         return {};
@@ -401,7 +421,7 @@ std::tuple<GrSurfaceProxyView, GrColorType> SkImage_Ganesh::asView(
     }
     GrSurfaceProxyView view = this->makeView(recordingContext);
     GrColorType ct = SkColorTypeToGrColorType(this->colorType());
-    if (mipmapped == GrMipmapped::kYes) {
+    if (mipmapped == skgpu::Mipmapped::kYes) {
         view = skgpu::ganesh::FindOrMakeCachedMipmappedView(recordingContext, std::move(view),
                                                             this->uniqueID());
     }
@@ -418,7 +438,8 @@ std::unique_ptr<GrFragmentProcessor> SkImage_Ganesh::asFragmentProcessor(
     if (!fContext->priv().matches(rContext)) {
         return {};
     }
-    auto mm = sampling.mipmap == SkMipmapMode::kNone ? GrMipmapped::kNo : GrMipmapped::kYes;
+    auto mm =
+            sampling.mipmap == SkMipmapMode::kNone ? skgpu::Mipmapped::kNo : skgpu::Mipmapped::kYes;
     return skgpu::ganesh::MakeFragmentProcessorFromView(
             rContext,
             std::get<0>(skgpu::ganesh::AsView(rContext, this, mm)),
@@ -433,4 +454,3 @@ std::unique_ptr<GrFragmentProcessor> SkImage_Ganesh::asFragmentProcessor(
 GrSurfaceProxyView SkImage_Ganesh::makeView(GrRecordingContext* rContext) const {
     return {fChooser.chooseProxy(rContext), fOrigin, fSwizzle};
 }
-

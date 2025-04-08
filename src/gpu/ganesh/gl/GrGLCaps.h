@@ -9,19 +9,37 @@
 #ifndef GrGLCaps_DEFINED
 #define GrGLCaps_DEFINED
 
-#include <functional>
-#include "include/private/SkChecksum.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/gl/GrGLBackendSurface.h"
+#include "include/gpu/ganesh/gl/GrGLTypes.h"
+#include "include/private/base/SkAssert.h"
 #include "include/private/base/SkTArray.h"
-#include "include/private/gpu/ganesh/GrGLTypesPriv.h"
-#include "src/core/SkTHash.h"
+#include "include/private/base/SkTDArray.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/gpu/Swizzle.h"
 #include "src/gpu/ganesh/GrCaps.h"
-#include "src/gpu/ganesh/gl/GrGLAttachment.h"
-#include "src/gpu/ganesh/gl/GrGLUtil.h"
+#include "src/gpu/ganesh/GrProgramDesc.h"
+#include "src/gpu/ganesh/gl/GrGLTypesPriv.h"
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 class GrGLContextInfo;
-class GrGLRenderTarget;
+class GrProgramInfo;
+class GrRenderTarget;
+class GrRenderTargetProxy;
+class GrSurface;
+class GrSurfaceProxy;
+class SkJSONWriter;
 enum class SkTextureCompressionType;
+struct GrContextOptions;
+struct GrGLInterface;
+struct GrShaderCaps;
+struct SkIRect;
+struct SkRect;
+
+namespace GrTest { struct TestFormatColorTypeCombination; }
 
 /**
  * Stores some capabilities of a GL context. Most are determined by the GL
@@ -112,6 +130,12 @@ public:
                        // WEBGL_draw_instanced_base_vertex_base_instance
     };
 
+    enum class RegenerateMipmapType {
+        kBaseLevel,
+        kBasePlusMaxLevel,
+        kBasePlusSync
+    };
+
     /**
      * Initializes the GrGLCaps to the set of features supported in the current
      * OpenGL context accessible via ctxInfo.
@@ -133,12 +157,13 @@ public:
 
     int getRenderTargetSampleCount(int requestedCount,
                                    const GrBackendFormat& format) const override {
-        return this->getRenderTargetSampleCount(requestedCount, format.asGLFormat());
+        return this->getRenderTargetSampleCount(requestedCount,
+                                                GrBackendFormats::AsGLFormat(format));
     }
     int getRenderTargetSampleCount(int requestedCount, GrGLFormat) const;
 
     int maxRenderTargetSampleCount(const GrBackendFormat& format) const override {
-        return this->maxRenderTargetSampleCount(format.asGLFormat());
+        return this->maxRenderTargetSampleCount(GrBackendFormats::AsGLFormat(format));
     }
     int maxRenderTargetSampleCount(GrGLFormat) const;
 
@@ -303,11 +328,17 @@ public:
     /// What type of transfer buffer is supported?
     TransferBufferType transferBufferType() const { return fTransferBufferType; }
 
-    /// How are GrFences implemented?
+    /** Supports using GrGLsync. */
+    bool fenceSyncSupport() const { return fFenceSyncSupport; }
+
+    /// How is GrGLsync implemented?
     FenceType fenceType() const { return fFenceType; }
 
     /// How are multi draws implemented (if at all)?
     MultiDrawType multiDrawType() const { return fMultiDrawType; }
+
+    /// How is restricting sampled miplevels in onRegenerateMipmapLevels implemented?
+    RegenerateMipmapType regenerateMipmapType() const { return fRegenerateMipmapType; }
 
     /// The maximum number of fragment uniform vectors (GLES has min. 16).
     int maxFragmentUniformVectors() const { return fMaxFragmentUniformVectors; }
@@ -329,6 +360,9 @@ public:
 
     /// Is there support for ES2 compatability?
     bool ES2CompatibilitySupport() const { return fES2CompatibilitySupport; }
+
+    // Should OpenGL Protectedness handling be Vulkan-like
+    bool strictProtectedness() const { return fStrictProtectedness; }
 
     /// Is there support for glDrawRangeElements?
     bool drawRangeElementsSupport() const { return fDrawRangeElementsSupport; }
@@ -482,8 +516,6 @@ public:
      */
     bool skipErrorChecks() const { return fSkipErrorChecks; }
 
-    bool supportsProtected() const { return fSupportsProtected; }
-
     bool clientCanDisableMultisample() const { return fClientCanDisableMultisample; }
 
     GrBackendFormat getBackendFormatFromCompressionType(SkTextureCompressionType) const override;
@@ -496,7 +528,7 @@ public:
                            const GrProgramInfo&,
                            ProgramDescOverrideFlags) const override;
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     GrGLStandard standard() const { return fStandard; }
 
     std::vector<GrTest::TestFormatColorTypeCombination> getTestingCombinations() const override;
@@ -573,6 +605,7 @@ private:
     TransferBufferType   fTransferBufferType   = TransferBufferType::kNone;
     FenceType            fFenceType            = FenceType::kNone;
     MultiDrawType        fMultiDrawType        = MultiDrawType::kNone;
+    RegenerateMipmapType fRegenerateMipmapType = RegenerateMipmapType::kBaseLevel;
 
     bool fPackFlipYSupport : 1;
     bool fTextureUsageSupport : 1;
@@ -580,6 +613,7 @@ private:
     bool fVertexArrayObjectSupport : 1;
     bool fDebugSupport : 1;
     bool fES2CompatibilitySupport : 1;
+    bool fStrictProtectedness     : 1;
     bool fDrawRangeElementsSupport : 1;
     bool fBaseVertexBaseInstanceSupport : 1;
     bool fIsCoreProfile : 1;
@@ -595,11 +629,11 @@ private:
     bool fUseSamplerObjects : 1;
     bool fTextureSwizzleSupport : 1;
     bool fTiledRenderingSupport : 1;
+    bool fFenceSyncSupport : 1;
     bool fFBFetchRequiresEnablePerSample : 1;
     bool fSRGBWriteControl : 1;
     bool fSkipErrorChecks : 1;
     bool fClientCanDisableMultisample : 1;
-    bool fSupportsProtected : 1;
 
     // Driver workarounds
     bool fDoManualMipmapping : 1;
@@ -612,12 +646,14 @@ private:
     bool fNeverDisableColorWrites : 1;
     bool fMustSetAnyTexParameterToEnableMipmapping : 1;
     bool fAllowBGRA8CopyTexSubImage : 1;
+    bool fAllowSRGBCopyTexSubImage : 1;
     bool fDisallowDynamicMSAA : 1;
     bool fMustResetBlendFuncBetweenDualSourceAndDisable : 1;
     bool fBindTexture0WhenChangingTextureFBOMultisampleCount : 1;
     bool fRebindColorAttachmentAfterCheckFramebufferStatus : 1;
     bool fFlushBeforeWritePixels : 1;
     bool fDisableScalingCopyAsDraws : 1;
+    bool fPadRG88TransferAlignment : 1;
     int fMaxInstancesPerDrawWithoutCrashing = 0;
 
     uint32_t fBlitFramebufferFlags = kNoSupport_BlitFramebufferFlag;
@@ -770,12 +806,10 @@ private:
 
         bool fHaveQueriedImplementationReadSupport = false;
 
-        enum {
-            // This indicates that a stencil format has not yet been determined for the config.
-            kUnknown_StencilIndex = -1,
-            // This indicates that there is no supported stencil format for the config.
-            kUnsupported_StencilFormatIndex = -2
-        };
+        // This indicates that a stencil format has not yet been determined for the config.
+        static constexpr int kUnknown_StencilIndex = -1;
+        // This indicates that there is no supported stencil format for the config.
+        static constexpr int kUnsupported_StencilFormatIndex = -2;
 
         // Index fStencilFormats.
         int fStencilFormatIndex = kUnknown_StencilIndex;

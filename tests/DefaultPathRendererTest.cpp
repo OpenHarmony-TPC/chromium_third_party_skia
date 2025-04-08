@@ -16,8 +16,8 @@
 #include "include/core/SkStrokeRec.h"
 #include "include/core/SkSurfaceProps.h"
 #include "include/core/SkTypes.h"
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
 #include "include/private/SkColorData.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/gpu/SkBackingFit.h"
@@ -28,6 +28,7 @@
 #include "src/gpu/ganesh/SurfaceDrawContext.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
+#include "tools/gpu/ContextType.h"
 
 #include <memory>
 #include <utility>
@@ -136,7 +137,7 @@ static void run_test(GrDirectContext* dContext, skiatest::Reporter* reporter) {
 }
 
 DEF_GANESH_TEST_FOR_CONTEXTS(DefaultPathRendererTest,
-                             sk_gpu_test::GrContextFactory::IsRenderingContext,
+                             skgpu::IsRenderingContext,
                              reporter,
                              ctxInfo,
                              only_allow_default,

@@ -10,7 +10,8 @@
 #include "include/core/SkRefCnt.h"
 
 #include "include/core/SkSamplingOptions.h"
-#include "include/gpu/GrTypes.h"
+#include "include/core/SkYUVAPixmaps.h"
+#include "src/gpu/ganesh/GrFragmentProcessor.h"  // IWYU pragma: keep
 #include "src/gpu/ganesh/GrSurfaceProxyView.h"  // IWYU pragma: keep
 #include "src/gpu/ganesh/SkGr.h"
 
@@ -20,12 +21,14 @@
 #include <tuple>
 
 class GrCaps;
-class GrFragmentProcessor;
+class GrImageContext;
 class GrRecordingContext;
 class SkImage;
 class SkImage_Lazy;
 class SkImage_Raster;
 class SkMatrix;
+class SkSurfaceProps;
+enum GrSurfaceOrigin : int;
 enum SkAlphaType : int;
 enum SkColorType : int;
 enum class GrColorType;
@@ -41,13 +44,13 @@ namespace skgpu::ganesh {
 std::tuple<GrSurfaceProxyView, GrColorType> AsView(
         GrRecordingContext*,
         const SkImage*,
-        GrMipmapped,
+        skgpu::Mipmapped,
         GrImageTexGenPolicy = GrImageTexGenPolicy::kDraw);
 
 inline std::tuple<GrSurfaceProxyView, GrColorType> AsView(
         GrRecordingContext* ctx,
-        sk_sp<const SkImage> img,
-        GrMipmapped mm,
+        const sk_sp<const SkImage>& img,
+        skgpu::Mipmapped mm,
         GrImageTexGenPolicy policy = GrImageTexGenPolicy::kDraw) {
     return AsView(ctx, img.get(), mm, policy);
 }
@@ -55,13 +58,13 @@ inline std::tuple<GrSurfaceProxyView, GrColorType> AsView(
 std::tuple<GrSurfaceProxyView, GrColorType> RasterAsView(
         GrRecordingContext*,
         const SkImage_Raster*,
-        GrMipmapped,
+        skgpu::Mipmapped,
         GrImageTexGenPolicy = GrImageTexGenPolicy::kDraw);
 
 // Utility for making a copy of an existing view when the GrImageTexGenPolicy is not kDraw.
 GrSurfaceProxyView CopyView(GrRecordingContext*,
                             GrSurfaceProxyView src,
-                            GrMipmapped,
+                            skgpu::Mipmapped,
                             GrImageTexGenPolicy,
                             std::string_view label);
 
@@ -95,7 +98,7 @@ std::unique_ptr<GrFragmentProcessor> AsFragmentProcessor(GrRecordingContext*,
                                                          const SkRect* domain = nullptr);
 
 inline std::unique_ptr<GrFragmentProcessor> AsFragmentProcessor(GrRecordingContext* ctx,
-                                                                sk_sp<const SkImage> img,
+                                                                const sk_sp<const SkImage>& img,
                                                                 SkSamplingOptions opt,
                                                                 const SkTileMode tm[2],
                                                                 const SkMatrix& m,
@@ -124,5 +127,20 @@ GrSurfaceProxyView FindOrMakeCachedMipmappedView(GrRecordingContext*,
                                                  GrSurfaceProxyView,
                                                  uint32_t imageUniqueID);
 
+/** Init based on texture formats supported by the context. */
+SkYUVAPixmapInfo::SupportedDataTypes SupportedTextureFormats(const GrImageContext&);
+
 }  // namespace skgpu::ganesh
+
+namespace skif {
+
+class Backend;
+
+sk_sp<Backend> MakeGaneshBackend(sk_sp<GrRecordingContext> context,
+                                 GrSurfaceOrigin origin,
+                                 const SkSurfaceProps& surfaceProps,
+                                 SkColorType colorType);
+
+}  // namespace skif
+
 #endif

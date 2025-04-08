@@ -8,12 +8,17 @@
 #include "gm/gm.h"
 
 #include "include/core/SkPath.h"
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 #include "src/gpu/ganesh/GrDrawingManager.h"
 #include "src/gpu/ganesh/GrRecordingContextPriv.h"
 #include "tools/ToolUtils.h"
+
+#if defined(SK_GRAPHITE)
+#include "include/gpu/graphite/ContextOptions.h"
+#include "src/gpu/graphite/ContextOptionsPriv.h"
+#endif
 
 namespace skiagm {
 
@@ -25,13 +30,22 @@ class ManyPathAtlasesGM : public GM {
 public:
     ManyPathAtlasesGM(int maxAtlasSize) : fMaxAtlasSize(maxAtlasSize) {}
 private:
-    SkString onShortName() override { return SkStringPrintf("manypathatlases_%i", fMaxAtlasSize); }
-    SkISize onISize() override { return SkISize::Make(128, 128); }
+    SkString getName() const override {
+        return SkStringPrintf("manypathatlases_%i", fMaxAtlasSize);
+    }
+    SkISize getISize() override { return SkISize::Make(128, 128); }
 
     void modifyGrContextOptions(GrContextOptions* ctxOptions) override {
         // This will test the case where the atlas runs out of room if fMaxAtlasSize is small.
         ctxOptions->fMaxTextureAtlasSize = fMaxAtlasSize;
     }
+
+#if defined(SK_GRAPHITE)
+    void modifyGraphiteContextOptions(skgpu::graphite::ContextOptions* options) const override {
+        SkASSERT(options->fOptionsPriv);
+        options->fOptionsPriv->fMaxTextureAtlasSize = fMaxAtlasSize;
+    }
+#endif
 
     void onDraw(SkCanvas* canvas) override {
         canvas->clear(SkColors::kYellow);

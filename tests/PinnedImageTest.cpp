@@ -21,13 +21,15 @@
 #include "include/core/SkTileMode.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/mock/GrMockTypes.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "include/gpu/ganesh/mock/GrMockTypes.h"
 #include "src/gpu/ganesh/GrFragmentProcessor.h" // IWYU pragma: keep
 #include "src/gpu/ganesh/SkGr.h"
 #include "src/gpu/ganesh/image/GrImageUtils.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
+#include "tools/gpu/ContextType.h"
 #include "tools/gpu/FenceSync.h"
 
 #include <string>
@@ -68,7 +70,7 @@ static void basic_test(skiatest::Reporter* reporter, GrRecordingContext* rContex
     sk_sp<SkImage> img = SkImages::PinnableRasterFromBitmap(bm);
     REPORTER_ASSERT(reporter, img, "PinnableImageFromBitmap returned null");
 
-    sk_sp<SkSurface> gpuSurface = SkSurface::MakeRenderTarget(rContext, skgpu::Budgeted::kYes, ii);
+    sk_sp<SkSurface> gpuSurface = SkSurfaces::RenderTarget(rContext, skgpu::Budgeted::kYes, ii);
     SkCanvas* canvas = gpuSurface->getCanvas();
 
     // w/o pinning - the gpu draw always reflects the current state of the underlying bitmap
@@ -119,8 +121,8 @@ static void cleanup_test(skiatest::Reporter* reporter) {
     GrMockOptions options;
     sk_sp<GrDirectContext> mockContext = GrDirectContext::MakeMock(&options);
 
-    for (int i = 0; i < GrContextFactory::kContextTypeCnt; ++i) {
-        GrContextFactory::ContextType ctxType = (GrContextFactory::ContextType) i;
+    for (int i = 0; i < skgpu::kContextTypeCount; ++i) {
+        auto ctxType = static_cast<skgpu::ContextType>(i);
 
         {
             sk_sp<SkImage> img;

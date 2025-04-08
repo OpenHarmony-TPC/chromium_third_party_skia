@@ -12,12 +12,12 @@
 #include "include/core/SkRect.h"
 #include "include/core/SkRefCnt.h"
 #include "include/private/base/SkTArray.h"
-#include "src/core/SkEnumBitMask.h"
-#include "src/gpu/graphite/AttachmentTypes.h"
+#include "src/base/SkEnumBitMask.h"
 #include "src/gpu/graphite/DrawCommands.h"
 #include "src/gpu/graphite/DrawTypes.h"
 #include "src/gpu/graphite/GraphicsPipelineDesc.h"
 #include "src/gpu/graphite/ResourceTypes.h"
+#include "src/gpu/graphite/TextureProxy.h"
 
 #include <memory>
 
@@ -35,7 +35,6 @@ class ResourceProvider;
 class RuntimeEffectDictionary;
 class Sampler;
 class TextureDataBlock;
-class TextureProxy;
 class Texture;
 enum class UniformSlot;
 
@@ -55,6 +54,8 @@ class DrawPass {
 public:
     ~DrawPass();
 
+    // Create a DrawPass that renders the DrawList into `target` with the given load/store ops and
+    // clear color.
     static std::unique_ptr<DrawPass> Make(Recorder*,
                                           std::unique_ptr<DrawList>,
                                           sk_sp<TextureProxy> target,
@@ -93,6 +94,8 @@ public:
     }
     const Texture* getTexture(size_t index) const;
     const Sampler* getSampler(size_t index) const;
+
+    skia_private::TArray<sk_sp<TextureProxy>> sampledTextures() const { return fSampledTextures; }
 
     void addResourceRefs(CommandBuffer*) const;
 

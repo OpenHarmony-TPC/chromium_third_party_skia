@@ -19,10 +19,9 @@
 #include "include/core/SkShader.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkSwizzle.h"
-#include "include/core/SkTime.h"
 #include "include/core/SkVertices.h"
 #include "include/private/base/SkTDArray.h"
-#include "tools/sk_app/DisplayParams.h"
+#include "src/base/SkTime.h"
 #include "tools/skui/InputState.h"
 #include "tools/skui/Key.h"
 
@@ -78,6 +77,7 @@ ImGuiLayer::~ImGuiLayer() {
 }
 
 void ImGuiLayer::setScaleFactor(float scaleFactor) {
+    ImGui::GetStyle() = ImGuiStyle{};
     ImGui::GetStyle().ScaleAllSizes(scaleFactor);
 
     ImFontAtlas& atlas = *ImGui::GetIO().Fonts;
@@ -123,10 +123,10 @@ bool ImGuiLayer::onMouse(int x, int y, skui::InputState state, skui::ModifierKey
     return io.WantCaptureMouse;
 }
 
-bool ImGuiLayer::onMouseWheel(float delta, skui::ModifierKey modifiers) {
+bool ImGuiLayer::onMouseWheel(float delta, int, int, skui::ModifierKey modifiers) {
     ImGuiIO& io = ImGui::GetIO();
     io.MouseWheel += delta;
-    return true;
+    return io.WantCaptureMouse;
 }
 
 void ImGuiLayer::skiaWidget(const ImVec2& size, SkiaWidgetFunc func) {

@@ -14,7 +14,7 @@
 #include "include/core/SkScalar.h"
 #include "include/core/SkSize.h"
 #include "include/core/SkString.h"
-#include "include/gpu/GrContextOptions.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
 #include "include/private/base/SkTArray.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 
@@ -26,11 +26,9 @@ public:
     PathMaskCache() {}
 
 protected:
-    SkString onShortName() override { return SkString("path_mask_cache"); }
+    SkString getName() const override { return SkString("path_mask_cache"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(650, 950);
-    }
+    SkISize getISize() override { return SkISize::Make(650, 950); }
 
     void onDraw(SkCanvas* canvas) override {
         static constexpr SkScalar kPad = 5.f;

@@ -18,21 +18,11 @@
 #include "include/core/SkTypes.h"
 #include "include/private/base/SkDebug.h"
 #include "src/core/SkBitmapCache.h"
+#include "src/core/SkColorSpacePriv.h"
 #include "src/image/SkRescaleAndReadPixels.h"
 
-#if defined(SK_GANESH)
-#include "include/gpu/GrRecordingContext.h"
-#include "include/private/gpu/ganesh/GrImageContext.h"
-
-#endif
-
-#if defined(SK_GRAPHITE)
-#include "src/core/SkColorSpacePriv.h"
-#include "src/gpu/graphite/Image_Graphite.h"
-#include "src/gpu/graphite/Log.h"
-#endif
-
 #include <atomic>
+#include <utility>
 
 SkImage_Base::SkImage_Base(const SkImageInfo& info, uint32_t uniqueID)
         : SkImage(info, uniqueID), fAddedToRasterCache(false) {}
@@ -87,7 +77,41 @@ bool SkImage_Base::onAsLegacyBitmap(GrDirectContext* dContext, SkBitmap* bitmap)
     return true;
 }
 
+sk_sp<SkImage> SkImage_Base::makeSubset(GrDirectContext* direct, const SkIRect& subset) const {
+    if (subset.isEmpty()) {
+        return nullptr;
+    }
+
+    const SkIRect bounds = SkIRect::MakeWH(this->width(), this->height());
+    if (!bounds.contains(subset)) {
+        return nullptr;
+    }
+
+    // optimization : return self if the subset == our bounds
+    if (bounds == subset) {
+        return sk_ref_sp(const_cast<SkImage_Base*>(this));
+    }
+
+    return this->onMakeSubset(direct, subset);
+}
+
+sk_sp<SkImage> SkImage_Base::makeSubset(skgpu::graphite::Recorder* recorder,
+                                        const SkIRect& subset,
+                                        RequiredProperties requiredProps) const {
+    if (subset.isEmpty()) {
+        return nullptr;
+    }
+
+    const SkIRect bounds = SkIRect::MakeWH(this->width(), this->height());
+    if (!bounds.contains(subset)) {
+        return nullptr;
+    }
+
+    return this->onMakeSubset(recorder, subset, requiredProps);
+}
+
 void SkImage_Base::onAsyncRescaleAndReadPixelsYUV420(SkYUVColorSpace,
+                                                     bool readAlpha,
                                                      sk_sp<SkColorSpace> dstColorSpace,
                                                      SkIRect srcRect,
                                                      SkISize dstSize,
@@ -100,51 +124,21 @@ void SkImage_Base::onAsyncRescaleAndReadPixelsYUV420(SkYUVColorSpace,
     callback(context, nullptr);
 }
 
-
-#if defined(SK_GRAPHITE)
-std::tuple<skgpu::graphite::TextureProxyView, SkColorType> SkImage_Base::asView(
-        skgpu::graphite::Recorder* recorder,
-        skgpu::Mipmapped mipmapped) const {
-    if (!recorder) {
-        return {};
-    }
-
-    if (!as_IB(this)->isGraphiteBacked()) {
-        return {};
-    }
-    // TODO(b/238756380): YUVA not supported yet
-    if (as_IB(this)->isYUVA()) {
-        return {};
-    }
-
-    auto image = reinterpret_cast<const skgpu::graphite::Image*>(this);
-
-    if (this->dimensions().area() <= 1) {
-        mipmapped = skgpu::Mipmapped::kNo;
-    }
-
-    if (mipmapped == skgpu::Mipmapped::kYes &&
-        image->textureProxyView().proxy()->mipmapped() != skgpu::Mipmapped::kYes) {
-        SKGPU_LOG_W("Graphite does not auto-generate mipmap levels");
-        return {};
-    }
-
-    SkColorType ct = this->colorType();
-    return { image->textureProxyView(), ct };
+sk_sp<SkImage> SkImage_Base::makeColorSpace(GrDirectContext* direct,
+                                            sk_sp<SkColorSpace> target) const {
+    return this->makeColorTypeAndColorSpace(direct, this->colorType(), std::move(target));
 }
 
-sk_sp<SkImage> SkImage::makeColorSpace(sk_sp<SkColorSpace> targetColorSpace,
-                                       skgpu::graphite::Recorder* recorder,
-                                       RequiredImageProperties requiredProps) const {
-    return this->makeColorTypeAndColorSpace(this->colorType(), std::move(targetColorSpace),
-                                            recorder, requiredProps);
+sk_sp<SkImage> SkImage_Base::makeColorSpace(skgpu::graphite::Recorder* recorder,
+                                            sk_sp<SkColorSpace> target,
+                                            RequiredProperties props) const {
+    return this->makeColorTypeAndColorSpace(recorder, this->colorType(), std::move(target), props);
 }
 
-sk_sp<SkImage> SkImage::makeColorTypeAndColorSpace(SkColorType targetColorType,
-                                                   sk_sp<SkColorSpace> targetColorSpace,
-                                                   skgpu::graphite::Recorder* recorder,
-                                                   RequiredImageProperties requiredProps) const {
-    if (kUnknown_SkColorType == targetColorType || !targetColorSpace) {
+sk_sp<SkImage> SkImage_Base::makeColorTypeAndColorSpace(GrDirectContext* dContext,
+                                                        SkColorType targetColorType,
+                                                        sk_sp<SkColorSpace> targetCS) const {
+    if (kUnknown_SkColorType == targetColorType || !targetCS) {
         return nullptr;
     }
 
@@ -154,34 +148,19 @@ sk_sp<SkImage> SkImage::makeColorTypeAndColorSpace(SkColorType targetColorType,
         colorSpace = sk_srgb_singleton();
     }
     if (colorType == targetColorType &&
-        (SkColorSpace::Equals(colorSpace, targetColorSpace.get()) || this->isAlphaOnly())) {
-        return sk_ref_sp(const_cast<SkImage*>(this));
+        (SkColorSpace::Equals(colorSpace, targetCS.get()) || this->isAlphaOnly())) {
+        return sk_ref_sp(const_cast<SkImage_Base*>(this));
     }
 
-    return as_IB(this)->onMakeColorTypeAndColorSpace(targetColorType,
-                                                     std::move(targetColorSpace),
-                                                     recorder,
-                                                     requiredProps);
+    return this->onMakeColorTypeAndColorSpace(targetColorType, std::move(targetCS), dContext);
 }
 
-sk_sp<SkImage> SkImage_Base::makeTextureImage(skgpu::graphite::Recorder* recorder,
-                                              RequiredImageProperties requiredProps) const {
-    if (!recorder) {
-        return nullptr;
-    }
-    if (this->dimensions().area() <= 1) {
-        requiredProps.fMipmapped = skgpu::Mipmapped::kNo;
-    }
-
-    return as_IB(this)->onMakeTextureImage(recorder, requiredProps);
-}
-
-#endif // SK_GRAPHITE
-
-GrDirectContext* SkImage_Base::directContext() const {
-#if defined(SK_GANESH)
-    return GrAsDirectContext(this->context());
-#else
-    return nullptr;
-#endif
+sk_sp<SkImage> SkImage_Base::makeColorTypeAndColorSpace(skgpu::graphite::Recorder*,
+                                                        SkColorType ct,
+                                                        sk_sp<SkColorSpace> cs,
+                                                        RequiredProperties) const {
+    // Default to the ganesh version which should be backend agnostic if this
+    // image is, for example, a raster backed image. The graphite subclass overrides
+    // this method and things work correctly.
+    return this->makeColorTypeAndColorSpace(nullptr, ct, std::move(cs));
 }

@@ -10,7 +10,7 @@
 #define TestContext_DEFINED
 
 #include "include/core/SkRefCnt.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/private/base/SkNoncopyable.h"
 #include "include/private/base/SkTemplates.h"
 #include "src/base/SkScopeExit.h"
@@ -58,7 +58,7 @@ public:
      * executes. If the concept of a current context doesn't make sense for this context type then
      * the returned object's destructor is a no-op.
      */
-    SkScopeExit SK_WARN_UNUSED_RESULT makeCurrentAndAutoRestore() const;
+    [[nodiscard]] SkScopeExit makeCurrentAndAutoRestore() const;
 
     virtual GrBackendApi backend() = 0;
 
@@ -80,8 +80,8 @@ public:
      */
     virtual void testAbandon();
 
-    /** Wait until all GPU work is finished. */
-    virtual void finish() = 0;
+    /** Flush and wait until all GPU work is finished. */
+    void flushAndSyncCpu(GrDirectContext*);
 
 protected:
     bool fFenceSupport = false;

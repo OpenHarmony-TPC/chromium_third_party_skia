@@ -5,13 +5,13 @@
 * found in the LICENSE file.
 */
 
-#include "tools/sk_app/unix/WindowContextFactory_unix.h"
-
 #include "src/base/SkUTF.h"
-#include "tools/sk_app/WindowContext.h"
 #include "tools/sk_app/unix/Window_unix.h"
 #include "tools/skui/ModifierKey.h"
 #include "tools/timer/Timer.h"
+#include "tools/window/WindowContext.h"
+#include "tools/window/unix/RasterWindowContext_unix.h"
+#include "tools/window/unix/XlibWindowInfo.h"
 
 extern "C" {
     #include "tools/sk_app/unix/keysym2ucs.h"
@@ -20,11 +20,27 @@ extern "C" {
 #include <X11/Xutil.h>
 #include <X11/XKBlib.h>
 
+#if defined(SK_GANESH) && defined(SK_GL)
+#include "tools/window/unix/GaneshGLWindowContext_unix.h"
+#endif
+
+#if defined(SK_GANESH) && defined(SK_VULKAN)
+#include "tools/window/unix/GaneshVulkanWindowContext_unix.h"
+#endif
+
+#if defined(SK_GRAPHITE) && defined(SK_VULKAN)
+#include "tools/window/unix/GraphiteNativeVulkanWindowContext_unix.h"
+#endif
+
+#if defined(SK_GRAPHITE) && defined(SK_DAWN)
+#include "tools/window/unix/GraphiteDawnVulkanWindowContext_unix.h"
+#endif
+
 namespace sk_app {
 
 SkTDynamicHash<Window_unix, XWindow> Window_unix::gWindowMap;
 
-Window* Window::CreateNativeWindow(void* platformData) {
+Window* Windows::CreateNativeWindow(void* platformData) {
     Display* display = (Display*)platformData;
     SkASSERT(display);
 
@@ -268,10 +284,10 @@ bool Window_unix::handleEvent(const XEvent& event) {
                                   skui::InputState::kDown, get_modifiers(event));
                     break;
                 case Button4:
-                    this->onMouseWheel(1.0f, get_modifiers(event));
+                    this->onMouseWheel(1.0f, 0, 0, get_modifiers(event));
                     break;
                 case Button5:
-                    this->onMouseWheel(-1.0f, get_modifiers(event));
+                    this->onMouseWheel(-1.0f, 0, 0, get_modifiers(event));
                     break;
             }
             break;
@@ -380,7 +396,7 @@ bool Window_unix::attach(BackendType attachType) {
 
     this->initWindow(fDisplay);
 
-    window_context_factory::XlibWindowInfo winInfo;
+    skwindow::XlibWindowInfo winInfo;
     winInfo.fDisplay = fDisplay;
     winInfo.fWindow = fWindow;
     winInfo.fFBConfig = fFBConfig;
@@ -395,35 +411,33 @@ bool Window_unix::attach(BackendType attachType) {
     }
 
     switch (attachType) {
-#ifdef SK_DAWN
-        case kDawn_BackendType:
-            fWindowContext =
-                    window_context_factory::MakeDawnVulkanForXlib(winInfo, fRequestedDisplayParams);
-            break;
-#endif
-#if defined(SK_DAWN) && defined(SK_GRAPHITE)
+#if defined(SK_GRAPHITE) && defined(SK_DAWN)
         case kGraphiteDawn_BackendType:
-            fWindowContext =
-                    window_context_factory::MakeGraphiteDawnVulkanForXlib(winInfo,
-                                                                          fRequestedDisplayParams);
+            fWindowContext = skwindow::MakeGraphiteDawnVulkanForXlib(winInfo,
+                                                                     fRequestedDisplayParams);
             break;
 #endif
-#ifdef SK_VULKAN
+#if defined(SK_GANESH) && defined(SK_VULKAN)
         case kVulkan_BackendType:
-            fWindowContext =
-                    window_context_factory::MakeVulkanForXlib(winInfo, fRequestedDisplayParams);
+            fWindowContext = skwindow::MakeGaneshVulkanForXlib(winInfo, fRequestedDisplayParams);
             break;
 #endif
-#ifdef SK_GL
-        case kNativeGL_BackendType:
+#if defined(SK_GRAPHITE) && defined(SK_VULKAN)
+        case kGraphiteVulkan_BackendType:
             fWindowContext =
-                    window_context_factory::MakeGLForXlib(winInfo, fRequestedDisplayParams);
+                    skwindow::MakeGraphiteNativeVulkanForXlib(winInfo, fRequestedDisplayParams);
+            break;
+#endif
+#if defined(SK_GANESH) && defined(SK_GL)
+        case kNativeGL_BackendType:
+            fWindowContext = skwindow::MakeGaneshGLForXlib(winInfo, fRequestedDisplayParams);
             break;
 #endif
         case kRaster_BackendType:
-            fWindowContext =
-                    window_context_factory::MakeRasterForXlib(winInfo, fRequestedDisplayParams);
+            fWindowContext = skwindow::MakeRasterForXlib(winInfo, fRequestedDisplayParams);
             break;
+        default:
+            SK_ABORT("Unknown backend");
     }
     this->onBackendCreated();
 

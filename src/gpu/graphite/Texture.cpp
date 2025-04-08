@@ -7,45 +7,27 @@
 
 #include "src/gpu/graphite/Texture.h"
 
-#include "src/gpu/MutableTextureStateRef.h"
+#include "include/core/SkTraceMemoryDump.h"
+#include "include/gpu/MutableTextureState.h"
 #include "src/gpu/RefCntedCallback.h"
 #include "src/gpu/graphite/Caps.h"
 #include "src/gpu/graphite/SharedContext.h"
+#include "src/gpu/graphite/TextureUtils.h"
 
 namespace skgpu::graphite {
-
-// TODO: Make this computed size more generic to handle compressed textures
-size_t compute_size(const SharedContext* sharedContext,
-                    SkISize dimensions,
-                    const TextureInfo& info) {
-    // TODO: Should we make sure the backends return zero here if the TextureInfo is for a
-    // memoryless texture?
-    size_t bytesPerPixel = sharedContext->caps()->bytesPerPixel(info);
-
-    size_t colorSize = (size_t)dimensions.width() * dimensions.height() * bytesPerPixel;
-
-    size_t finalSize = colorSize * info.numSamples();
-
-    if (info.mipmapped() == Mipmapped::kYes) {
-        finalSize += colorSize/3;
-    }
-    return finalSize;
-}
 
 Texture::Texture(const SharedContext* sharedContext,
                  SkISize dimensions,
                  const TextureInfo& info,
-                 sk_sp<MutableTextureStateRef> mutableState,
+                 sk_sp<MutableTextureState> mutableState,
                  Ownership ownership,
                  skgpu::Budgeted budgeted)
-        : Resource(sharedContext, ownership, budgeted, compute_size(sharedContext,
-                                                                    dimensions,
-                                                                    info))
+        : Resource(sharedContext, ownership, budgeted, ComputeSize(dimensions, info))
         , fDimensions(dimensions)
         , fInfo(info)
         , fMutableState(std::move(mutableState)) {}
 
-Texture::~Texture() {}
+Texture::~Texture() = default;
 
 void Texture::setReleaseCallback(sk_sp<RefCntedCallback> releaseCallback) {
     fReleaseCallback = std::move(releaseCallback);
@@ -59,6 +41,14 @@ void Texture::invokeReleaseProc() {
     }
 }
 
-MutableTextureStateRef* Texture::mutableState() const { return fMutableState.get(); }
+MutableTextureState* Texture::mutableState() const { return fMutableState.get(); }
+
+void Texture::onDumpMemoryStatistics(SkTraceMemoryDump* traceMemoryDump,
+                                     const char* dumpName) const {
+    SkString dimensionsStr;
+    dimensionsStr.printf("(%dx%d)", fDimensions.width(), fDimensions.height());
+    traceMemoryDump->dumpStringValue(dumpName, "dimensions", dimensionsStr.c_str());
+    traceMemoryDump->dumpStringValue(dumpName, "textureInfo", fInfo.toString().c_str());
+}
 
 } // namespace skgpu::graphite

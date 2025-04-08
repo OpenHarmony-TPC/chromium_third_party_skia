@@ -7,8 +7,8 @@
 
 #include "bench/MSKPBench.h"
 #include "include/core/SkCanvas.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
 #include "tools/MSKPPlayer.h"
 
 MSKPBench::MSKPBench(SkString name, std::unique_ptr<MSKPPlayer> player)
@@ -34,7 +34,7 @@ void MSKPBench::onDraw(int loops, SkCanvas* canvas) {
 
 const char* MSKPBench::onGetName() { return fName.c_str(); }
 
-SkIPoint MSKPBench::onGetSize() {
+SkISize MSKPBench::onGetSize() {
     auto dims = fPlayer->maxDimensions();
     return {dims.width(), dims.height()};
 }

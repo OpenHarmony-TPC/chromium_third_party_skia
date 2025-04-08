@@ -11,7 +11,7 @@
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkYUVAPixmaps.h"
-#include "include/gpu/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
 #include "src/base/SkAutoMalloc.h"
 
 #include <tuple>
@@ -41,13 +41,13 @@ class LazyYUVImage {
 public:
     // Returns null if the data could not be extracted into YUVA planes
     static std::unique_ptr<LazyYUVImage> Make(sk_sp<SkData> data,
-                                              GrMipmapped = GrMipmapped::kNo,
+                                              skgpu::Mipmapped = skgpu::Mipmapped::kNo,
                                               sk_sp<SkColorSpace> = nullptr);
     static std::unique_ptr<LazyYUVImage> Make(SkYUVAPixmaps,
-                                              GrMipmapped = GrMipmapped::kNo,
+                                              skgpu::Mipmapped = skgpu::Mipmapped::kNo,
                                               sk_sp<SkColorSpace> = nullptr);
 
-    enum class Type { kFromPixmaps, kFromGenerator, kFromTextures };
+    enum class Type { kFromPixmaps, kFromGenerator, kFromTextures, kFromImages };
 
     SkISize dimensions() const { return fPixmaps.yuvaInfo().dimensions(); }
 
@@ -60,7 +60,7 @@ private:
     // Decoded YUV data
     SkYUVAPixmaps fPixmaps;
 
-    GrMipmapped fMipmapped;
+    skgpu::Mipmapped fMipmapped;
 
     sk_sp<SkColorSpace> fColorSpace;
 
@@ -69,8 +69,8 @@ private:
 
     LazyYUVImage() = default;
 
-    bool reset(sk_sp<SkData> data, GrMipmapped, sk_sp<SkColorSpace>);
-    bool reset(SkYUVAPixmaps pixmaps, GrMipmapped, sk_sp<SkColorSpace>);
+    bool reset(sk_sp<SkData> data, skgpu::Mipmapped, sk_sp<SkColorSpace>);
+    bool reset(SkYUVAPixmaps pixmaps, skgpu::Mipmapped, sk_sp<SkColorSpace>);
 
     bool ensureYUVImage(GrRecordingContext* rContext, Type type);
 #if defined(SK_GRAPHITE)

@@ -7,17 +7,16 @@
 
 #include "src/core/SkImageFilterCache.h"
 
-#include <vector>
-
-#include "include/core/SkImageFilter.h"
-#include "include/core/SkRefCnt.h"
 #include "include/private/base/SkMutex.h"
 #include "include/private/base/SkOnce.h"
 #include "src/base/SkTInternalLList.h"
-#include "src/core/SkOpts.h"
+#include "src/core/SkChecksum.h"
+#include "src/core/SkImageFilterTypes.h"
 #include "src/core/SkSpecialImage.h"
 #include "src/core/SkTDynamicHash.h"
 #include "src/core/SkTHash.h"
+
+#include <vector>
 
 using namespace skia_private;
 
@@ -48,7 +47,7 @@ public:
             return v.fKey;
         }
         static uint32_t Hash(const Key& key) {
-            return SkOpts::hash(reinterpret_cast<const uint32_t*>(&key), sizeof(Key));
+            return SkChecksum::Hash32(&key, sizeof(Key));
         }
         SK_DECLARE_INTERNAL_LLIST_INTERFACE(Value);
     };
@@ -153,13 +152,17 @@ private:
 
 } // namespace
 
-SkImageFilterCache* SkImageFilterCache::Create(size_t maxBytes) {
-    return new CacheImpl(maxBytes);
+sk_sp<SkImageFilterCache> SkImageFilterCache::Create(size_t maxBytes) {
+    return sk_make_sp<CacheImpl>(maxBytes);
 }
 
-SkImageFilterCache* SkImageFilterCache::Get() {
+sk_sp<SkImageFilterCache> SkImageFilterCache::Get(CreateIfNecessary createIfNecessary) {
     static SkOnce once;
-    static SkImageFilterCache* cache;
+    static sk_sp<SkImageFilterCache> cache;
+
+    if (createIfNecessary == CreateIfNecessary::kNo) {
+        return cache;
+    }
 
     once([]{ cache = SkImageFilterCache::Create(kDefaultCacheSize); });
     return cache;

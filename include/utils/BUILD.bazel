@@ -1,14 +1,14 @@
-load("//bazel:skia_rules.bzl", "exports_files_legacy", "skia_filegroup")
+load("//bazel:skia_rules.bzl", "skia_filegroup")
+
+package(
+    default_applicable_licenses = ["//:license"],
+)
 
 licenses(["notice"])
 
-exports_files_legacy()
-
 skia_filegroup(
-    name = "public_hdrs",
+    name = "core_hdrs",
     srcs = [
-        "SkAnimCodecPlayer.h",
-        "SkBase64.h",
         "SkCamera.h",
         "SkCanvasStateUtils.h",
         "SkCustomTypeface.h",
@@ -23,6 +23,6 @@ skia_filegroup(
         "SkShadowUtils.h",
         "SkTextUtils.h",
         "SkTraceEventPhase.h",
-    ],  # TODO(kjlubick) add select for mac
-    visibility = ["//include:__pkg__"],
+    ],
+    visibility = ["//src/core:__pkg__"],
 )

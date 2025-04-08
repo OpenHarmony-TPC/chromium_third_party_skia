@@ -54,8 +54,6 @@ def RunSteps(api):
 
     if 'Lottie' in builder:
       api.flavor.install(lotties=True)
-    elif 'Mskp' in builder:
-      api.flavor.install(mskps=True)
     elif all(v in builder for v in ['Perf', 'Android', 'CPU']):
       api.flavor.install(skps=True, images=True, svgs=True,
                          resources=True, texttraces=True)
@@ -84,7 +82,6 @@ TEST_BUILDERS = [
   'Perf-Android-Clang-GalaxyS7_G930FD-GPU-MaliT880-arm64-Debug-All-Android',
   'Perf-Android-Clang-NVIDIA_Shield-CPU-TegraX1-arm64-Release-All-Android',
   'Perf-Android-Clang-Nexus5x-GPU-Adreno418-arm64-Debug-All-Android',
-  'Perf-Android-Clang-Pixel2XL-GPU-Adreno540-arm64-Release-All-Android_Skpbench_Mskp',
   'Perf-Android-Clang-GalaxyS20-GPU-MaliG77-arm64-Release-All-Android_Vulkan',
   'Perf-Android-Clang-Pixel6-GPU-Adreno620-arm64-Release-All-Android',
   'Perf-ChromeOS-Clang-SamsungChromebookPlus-GPU-MaliT860-arm-Release-All',
@@ -107,6 +104,7 @@ TEST_BUILDERS = [
    '-Valgrind_AbandonGpuContext_SK_CPU_LIMIT_SSE41'),
   'Test-Debian10-Clang-NUC7i5BNK-GPU-IntelIris640-x86_64-Debug-All-ASAN_Vulkan',
   'Test-Debian11-Clang-NUC11TZi5-GPU-IntelIrisXe-x86_64-Debug-All',
+  'Test-Win10-Clang-NUC5i7RYH-CPU-AVX2-x86_64-Debug-All-NativeFonts_DWriteCore',
 ]
 
 # Default properties used for TEST_BUILDERS.

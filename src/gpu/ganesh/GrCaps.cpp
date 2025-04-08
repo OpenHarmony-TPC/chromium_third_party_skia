@@ -12,8 +12,8 @@
 #include "include/core/SkSize.h"
 #include "include/core/SkTextureCompressionType.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrContextOptions.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
 #include "include/private/base/SkDebug.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/core/SkCompressedDataUtils.h"
@@ -48,11 +48,13 @@ GrCaps::GrCaps(const GrContextOptions& options) {
     fShouldInitializeTextures = false;
     fBuffersAreInitiallyZero = false;
     fSupportsAHardwareBufferImages = false;
-    fFenceSyncSupport = false;
     fSemaphoreSupport = false;
+    fBackendSemaphoreSupport = false;
+    fFinishedProcAsyncCallbackSupport = false;
     fCrossContextTextureSupport = false;
     fHalfFloatVertexAttributeSupport = false;
     fDynamicStateArrayGeometryProcessorTextureSupport = false;
+    fSupportsProtectedContent = false;
     fPerformPartialClearsAsDraws = false;
     fPerformColorClearsAsDraws = false;
     fAvoidLargeIndexBufferDraws = false;
@@ -80,7 +82,7 @@ GrCaps::GrCaps(const GrContextOptions& options) {
     fInternalMultisampleCount = 0;
 
     fSuppressPrints = options.fSuppressPrints;
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     fWireframeMode = options.fWireframeMode;
 #else
     fWireframeMode = false;
@@ -141,7 +143,7 @@ void GrCaps::applyOptionsOverrides(const GrContextOptions& options) {
     }
 
     fMaxTextureSize = std::min(fMaxTextureSize, options.fMaxTextureSizeOverride);
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     if (options.fSuppressAdvancedBlendEquations) {
         fBlendEquationSupport = kBasic_BlendEquationSupport;
     }
@@ -232,12 +234,14 @@ void GrCaps::dumpJSON(SkJSONWriter* writer) const {
     writer->appendBool("Should initialize textures", fShouldInitializeTextures);
     writer->appendBool("Buffers are initially zero", fBuffersAreInitiallyZero);
     writer->appendBool("Supports importing AHardwareBuffers", fSupportsAHardwareBufferImages);
-    writer->appendBool("Fence sync support", fFenceSyncSupport);
     writer->appendBool("Semaphore support", fSemaphoreSupport);
+    writer->appendBool("Backend Semaphore support", fBackendSemaphoreSupport);
+    writer->appendBool("FinishedProc async callback support", fFinishedProcAsyncCallbackSupport);
     writer->appendBool("Cross context texture support", fCrossContextTextureSupport);
     writer->appendBool("Half float vertex attribute support", fHalfFloatVertexAttributeSupport);
     writer->appendBool("Specify GeometryProcessor textures as a dynamic state array",
                        fDynamicStateArrayGeometryProcessorTextureSupport);
+    writer->appendBool("Supports Protected content", fSupportsProtectedContent);
     writer->appendBool("Use draws for partial clears", fPerformPartialClearsAsDraws);
     writer->appendBool("Use draws for color clears", fPerformColorClearsAsDraws);
     writer->appendBool("Avoid Large IndexBuffer Draws", fAvoidLargeIndexBufferDraws);
@@ -475,6 +479,7 @@ static inline GrColorType color_type_fallback(GrColorType ct) {
         // backend formats.
         case GrColorType::kAlpha_8:
         case GrColorType::kBGR_565:
+        case GrColorType::kRGB_565:
         case GrColorType::kABGR_4444:
         case GrColorType::kBGRA_8888:
         case GrColorType::kRGBA_1010102:
@@ -485,6 +490,8 @@ static inline GrColorType color_type_fallback(GrColorType ct) {
         case GrColorType::kAlpha_F16:
             return GrColorType::kRGBA_F16;
         case GrColorType::kGray_8:
+        case GrColorType::kRGB_F16F16F16x:
+        case GrColorType::kRGB_101010x:
             return GrColorType::kRGB_888x;
         default:
             return GrColorType::kUnknown;

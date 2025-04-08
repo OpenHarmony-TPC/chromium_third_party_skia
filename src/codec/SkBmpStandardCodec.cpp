@@ -122,7 +122,7 @@ SkCodec::Result SkBmpStandardCodec::onGetPixels(const SkImageInfo& dstInfo,
         // color table with black.  This is the same the behavior as the
         // chromium decoder.
         for (; i < maxColors; i++) {
-            colorTable[i] = SkPackARGB32NoCheck(0xFF, 0, 0, 0);
+            colorTable[i] = SkPackARGB32(0xFF, 0, 0, 0);
         }
 
         if (this->colorXform() && !this->xformOnDecode()) {
@@ -130,7 +130,7 @@ SkCodec::Result SkBmpStandardCodec::onGetPixels(const SkImageInfo& dstInfo,
         }
 
         // Set the color table
-        fColorTable.reset(new SkColorTable(colorTable, maxColors));
+        fColorTable.reset(new SkColorPalette(colorTable, maxColors));
     }
 
     // Bmp-in-Ico files do not use an offset to indicate where the pixel data

@@ -10,6 +10,7 @@
 
 #include "include/core/SkPathTypes.h"
 #include "include/core/SkVertices.h"
+#include "src/gpu/AtlasTypes.h"
 #include "src/gpu/graphite/Renderer.h"
 
 #include <vector>
@@ -18,6 +19,10 @@ namespace skgpu::graphite {
 
 class Caps;
 class StaticBufferManager;
+
+#ifdef SK_ENABLE_VELLO_SHADERS
+class VelloRenderer;
+#endif
 
 /**
  * Graphite defines a limited set of renderers in order to increase the likelihood of batching
@@ -29,6 +34,10 @@ class StaticBufferManager;
  */
 class RendererProvider {
 public:
+    static bool IsVelloRendererSupported(const Caps*);
+
+    ~RendererProvider();
+
     // TODO: Add configuration options to disable "optimization" renderers in favor of the more
     // general case, or renderers that won't be used by the application. When that's added, these
     // functions could return null.
@@ -43,8 +52,18 @@ public:
     const Renderer* convexTessellatedWedges() const { return &fConvexTessellatedWedges; }
     const Renderer* tessellatedStrokes() const { return &fTessellatedStrokes; }
 
-    // Atlas'ed text rendering
-    const Renderer* bitmapText() const { return &fBitmapText; }
+    // Coverage mask rendering
+    const Renderer* coverageMask() const { return &fCoverageMask; }
+
+    // Atlased text rendering
+    const Renderer* bitmapText(bool useLCDText, skgpu::MaskFormat format) const {
+        // We use 565 here to represent all LCD rendering, regardless of texture format
+        if (useLCDText) {
+            return &fBitmapText[(int)skgpu::MaskFormat::kA565];
+        }
+        SkASSERT(format != skgpu::MaskFormat::kA565);
+        return &fBitmapText[(int)format];
+    }
     const Renderer* sdfText(bool useLCDText) const { return &fSDFText[useLCDText]; }
 
     // Mesh rendering
@@ -54,8 +73,19 @@ public:
         return &fVertices[4*triStrip + 2*hasColors + hasTexCoords];
     }
 
-    // Filled and stroked [r]rects and per-edge AA quadrilaterals
+    // Filled and stroked [r]rects
     const Renderer* analyticRRect() const { return &fAnalyticRRect; }
+
+    // Per-edge AA quadrilaterals
+    const Renderer* perEdgeAAQuad() const { return &fPerEdgeAAQuad; }
+
+    // Non-AA bounds filling (can handle inverse "fills" but will touch every pixel within the clip)
+    const Renderer* nonAABounds() const { return &fNonAABoundsFill; }
+
+    // Circular arcs
+    const Renderer* circularArc() const { return &fCircularArc; }
+
+    const Renderer* analyticBlur() const { return &fAnalyticBlur; }
 
     // TODO: May need to add support for inverse filled strokes (need to check SVG spec if this is a
     // real thing).
@@ -67,6 +97,11 @@ public:
     }
 
     const RenderStep* lookup(uint32_t uniqueID) const;
+
+#ifdef SK_ENABLE_VELLO_SHADERS
+    // Compute shader-based path renderer and compositor.
+    const VelloRenderer* velloRenderer() const { return fVelloRenderer.get(); }
+#endif
 
 private:
     static constexpr int kPathTypeCount = 4;
@@ -91,15 +126,26 @@ private:
     Renderer fConvexTessellatedWedges;
     Renderer fTessellatedStrokes;
 
-    Renderer fBitmapText;
+    Renderer fCoverageMask;
+
+    Renderer fBitmapText[3];  // int variant
     Renderer fSDFText[2]; // bool isLCD
 
     Renderer fAnalyticRRect;
+    Renderer fPerEdgeAAQuad;
+    Renderer fNonAABoundsFill;
+    Renderer fCircularArc;
+
+    Renderer fAnalyticBlur;
 
     Renderer fVertices[kVerticesCount];
 
     // Aggregate of all enabled Renderers for convenient iteration when pre-compiling
     std::vector<const Renderer*> fRenderers;
+
+#ifdef SK_ENABLE_VELLO_SHADERS
+    std::unique_ptr<VelloRenderer> fVelloRenderer;
+#endif
 };
 
 }  // namespace skgpu::graphite

@@ -8,8 +8,8 @@
 #include "tools/gpu/ProxyUtils.h"
 
 #include "include/core/SkColor.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
 #include "include/private/gpu/ganesh/GrImageContext.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 #include "src/gpu/ganesh/GrDrawingManager.h"
@@ -42,7 +42,7 @@ GrTextureProxy* GetTextureImageProxy(SkImage* image, GrRecordingContext* rContex
             return nullptr;
         }
     }
-    auto [view, ct] = skgpu::ganesh::AsView(rContext, image, GrMipmapped::kNo);
+    auto [view, ct] = skgpu::ganesh::AsView(rContext, image, skgpu::Mipmapped::kNo);
     if (!view) {
         // With the above checks we expect this to succeed unless there is a context mismatch.
         SkASSERT(!image->isValid(rContext));
@@ -74,7 +74,7 @@ GrSurfaceProxyView MakeTextureProxyViewFromData(GrDirectContext* dContext,
                                                           pixmap.dimensions(),
                                                           renderable,
                                                           /*sample count*/ 1,
-                                                          GrMipmapped::kNo,
+                                                          skgpu::Mipmapped::kNo,
                                                           SkBackingFit::kExact,
                                                           skgpu::Budgeted::kYes,
                                                           GrProtected::kNo,

@@ -5,13 +5,27 @@
  * found in the LICENSE file.
  */
 
-#include "modules/skottie/include/Skottie.h"
-#include "modules/skottie/src/SkottiePriv.h"
-
 #include "include/core/SkImage.h"
+#include "include/core/SkMatrix.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkSamplingOptions.h"
+#include "include/core/SkSize.h"
+#include "include/core/SkString.h"
+#include "include/private/base/SkAssert.h"
+#include "modules/skottie/include/Skottie.h"
+#include "modules/skottie/include/SlotManager.h"
 #include "modules/skottie/src/SkottieJson.h"
+#include "modules/skottie/src/SkottiePriv.h"
+#include "modules/skottie/src/animator/Animator.h"
+#include "modules/skresources/include/SkResources.h"
 #include "modules/sksg/include/SkSGImage.h"
+#include "modules/sksg/include/SkSGRenderNode.h"
 #include "modules/sksg/include/SkSGTransform.h"
+#include "src/core/SkTHash.h"
+#include "src/utils/SkJSON.h"
+
+#include <utility>
 
 namespace skottie {
 namespace internal {
@@ -83,12 +97,13 @@ private:
 const AnimationBuilder::FootageAssetInfo*
 AnimationBuilder::loadFootageAsset(const skjson::ObjectValue& defaultJImage) const {
     const skjson::ObjectValue* jimage = &defaultJImage;
-    if (const skjson::StringValue* slotID = defaultJImage["sid"] ) {
-        if (!(this->fSlotsRoot)) {
+    const skjson::StringValue* slotID = defaultJImage["sid"];
+    if (slotID) {
+        if (!(fSlotsRoot)) {
             this->log(Logger::Level::kWarning, nullptr,
                          "Slotid found but no slots were found in the json. Using default asset.");
         } else {
-            const skjson::ObjectValue* slot = (*(this->fSlotsRoot))[slotID->begin()];
+            const skjson::ObjectValue* slot = (*(fSlotsRoot))[slotID->begin()];
             if (!slot) {
                 this->log(Logger::Level::kWarning, nullptr,
                              "Specified slotID not found in 'slots'. Using default asset.");
@@ -111,12 +126,15 @@ AnimationBuilder::loadFootageAsset(const skjson::ObjectValue& defaultJImage) con
     }
 
     auto asset = fResourceProvider->loadImageAsset(path->begin(), name->begin(), id->begin());
-    if (!asset) {
+    if (!asset && !slotID) {
         this->log(Logger::Level::kError, nullptr, "Could not load image asset: %s/%s (id: '%s').",
                   path->begin(), name->begin(), id->begin());
         return nullptr;
     }
 
+    if (slotID) {
+        asset = fSlotManager->trackImageValue(SkString(slotID->begin()), std::move(asset));
+    }
     const auto size = SkISize::Make(ParseDefault<int>((*jimage)["w"], 0),
                                     ParseDefault<int>((*jimage)["h"], 0));
     return fImageAssetCache.set(res_id, { std::move(asset), size });
@@ -169,7 +187,7 @@ sk_sp<sksg::RenderNode> AnimationBuilder::attachFootageAsset(const skjson::Objec
 
     if (!image_transform) {
         // No resize needed.
-        return std::move(image_node);
+        return image_node;
     }
 
     return sksg::TransformEffect::Make(std::move(image_node), std::move(image_transform));

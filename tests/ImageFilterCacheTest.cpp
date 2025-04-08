@@ -12,6 +12,7 @@
 #include "include/core/SkColorFilter.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkColorType.h"
+#include "include/core/SkGraphics.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkImageFilter.h"
 #include "include/core/SkImageInfo.h"
@@ -22,9 +23,9 @@
 #include "include/core/SkSurfaceProps.h"
 #include "include/core/SkTypes.h"
 #include "include/effects/SkImageFilters.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/gpu/ganesh/SkImageGanesh.h"
 #include "include/private/base/SkDebug.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
@@ -37,6 +38,7 @@
 #include "src/gpu/ganesh/GrSurfaceProxyView.h"
 #include "src/gpu/ganesh/GrTexture.h"
 #include "src/gpu/ganesh/SkGr.h"
+#include "src/gpu/ganesh/image/SkSpecialImage_Ganesh.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
 
@@ -187,12 +189,12 @@ DEF_TEST(ImageFilterCache_RasterBacked, reporter) {
 
     const SkIRect& full = SkIRect::MakeWH(kFullSize, kFullSize);
 
-    sk_sp<SkSpecialImage> fullImg(SkSpecialImage::MakeFromRaster(full, srcBM, SkSurfaceProps()));
+    sk_sp<SkSpecialImage> fullImg(SkSpecialImages::MakeFromRaster(full, srcBM, SkSurfaceProps()));
 
     const SkIRect& subset = SkIRect::MakeXYWH(kPad, kPad, kSmallerSize, kSmallerSize);
 
-    sk_sp<SkSpecialImage> subsetImg(SkSpecialImage::MakeFromRaster(subset, srcBM,
-                                                                   SkSurfaceProps()));
+    sk_sp<SkSpecialImage> subsetImg(
+            SkSpecialImages::MakeFromRaster(subset, srcBM, SkSurfaceProps()));
 
     test_find_existing(reporter, fullImg, subsetImg);
     test_dont_find_if_diff_key(reporter, fullImg, subsetImg);
@@ -207,13 +209,21 @@ static void test_image_backed(skiatest::Reporter* reporter,
                               const sk_sp<SkImage>& srcImage) {
     const SkIRect& full = SkIRect::MakeWH(kFullSize, kFullSize);
 
-    sk_sp<SkSpecialImage> fullImg(SkSpecialImage::MakeFromImage(rContext, full, srcImage,
-                                                                SkSurfaceProps()));
+    sk_sp<SkSpecialImage> fullImg;
+    if (rContext) {
+        fullImg = SkSpecialImages::MakeFromTextureImage(rContext, full, srcImage, {});
+    } else {
+        fullImg = SkSpecialImages::MakeFromRaster(full, srcImage, {});
+    }
 
     const SkIRect& subset = SkIRect::MakeXYWH(kPad, kPad, kSmallerSize, kSmallerSize);
 
-    sk_sp<SkSpecialImage> subsetImg(SkSpecialImage::MakeFromImage(rContext, subset, srcImage,
-                                                                  SkSurfaceProps()));
+    sk_sp<SkSpecialImage> subsetImg;
+    if (rContext) {
+        subsetImg = SkSpecialImages::MakeFromTextureImage(rContext, subset, srcImage, {});
+    } else {
+        subsetImg = SkSpecialImages::MakeFromRaster(subset, srcImage, {});
+    }
 
     test_find_existing(reporter, fullImg, subsetImg);
     test_dont_find_if_diff_key(reporter, fullImg, subsetImg);
@@ -296,28 +306,47 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(ImageFilterCache_GPUBacked,
 
     const SkIRect& full = SkIRect::MakeWH(kFullSize, kFullSize);
 
-    sk_sp<SkSpecialImage> fullImg(SkSpecialImage::MakeDeferredFromGpu(
-                                                              dContext, full,
-                                                              kNeedNewImageUniqueID_SpecialImage,
-                                                              srcView,
-                                                              { GrColorType::kRGBA_8888,
-                                                                kPremul_SkAlphaType,
-                                                                nullptr },
-                                                              SkSurfaceProps()));
+    sk_sp<SkSpecialImage> fullImg(SkSpecialImages::MakeDeferredFromGpu(
+            dContext,
+            full,
+            kNeedNewImageUniqueID_SpecialImage,
+            srcView,
+            {GrColorType::kRGBA_8888, kPremul_SkAlphaType, nullptr},
+            SkSurfaceProps()));
 
     const SkIRect& subset = SkIRect::MakeXYWH(kPad, kPad, kSmallerSize, kSmallerSize);
 
-    sk_sp<SkSpecialImage> subsetImg(SkSpecialImage::MakeDeferredFromGpu(
-                                                                dContext, subset,
-                                                                kNeedNewImageUniqueID_SpecialImage,
-                                                                std::move(srcView),
-                                                                { GrColorType::kRGBA_8888,
-                                                                  kPremul_SkAlphaType,
-                                                                  nullptr },
-                                                                SkSurfaceProps()));
+    sk_sp<SkSpecialImage> subsetImg(SkSpecialImages::MakeDeferredFromGpu(
+            dContext,
+            subset,
+            kNeedNewImageUniqueID_SpecialImage,
+            std::move(srcView),
+            {GrColorType::kRGBA_8888, kPremul_SkAlphaType, nullptr},
+            SkSurfaceProps()));
 
     test_find_existing(reporter, fullImg, subsetImg);
     test_dont_find_if_diff_key(reporter, fullImg, subsetImg);
     test_internal_purge(reporter, fullImg);
     test_explicit_purging(reporter, fullImg, subsetImg);
+}
+
+DEF_SERIAL_TEST(PurgeImageFilterCache, r) {
+    auto cache = SkImageFilterCache::Get(SkImageFilterCache::CreateIfNecessary::kNo);
+    if (cache) {
+        // This test verifies that Get(false) does not create the cache, but
+        // another test has already created it, so there is nothing to test.
+        return;
+    }
+
+    // This method calls SkImageFilter_Base::PurgeCache(), which is private.
+    SkGraphics::PurgeResourceCache();
+    cache = SkImageFilterCache::Get(SkImageFilterCache::CreateIfNecessary::kNo);
+
+    // PurgeCache should not have created it.
+    REPORTER_ASSERT(r, !cache);
+
+    {
+        cache = SkImageFilterCache::Get(SkImageFilterCache::CreateIfNecessary::kYes);
+        REPORTER_ASSERT(r, cache);
+    }
 }

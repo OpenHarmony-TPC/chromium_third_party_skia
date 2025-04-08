@@ -15,20 +15,30 @@
 
 namespace skgpu::graphite {
 struct ContextOptions;
+struct VulkanTextureInfo;
 
 class VulkanCaps final : public Caps {
 public:
-    VulkanCaps(const skgpu::VulkanInterface*,
-               VkPhysicalDevice device,
+    VulkanCaps(const ContextOptions&,
+               const skgpu::VulkanInterface*,
+               VkPhysicalDevice,
                uint32_t physicalDeviceVersion,
+               const VkPhysicalDeviceFeatures2*,
                const skgpu::VulkanExtensions*,
-               const ContextOptions&);
+               Protected);
     ~VulkanCaps() override;
 
     TextureInfo getDefaultSampledTextureInfo(SkColorType,
                                              Mipmapped mipmapped,
                                              Protected,
                                              Renderable) const override;
+
+    TextureInfo getTextureInfoForSampledCopy(const TextureInfo& textureInfo,
+                                             Mipmapped mipmapped) const override;
+
+    TextureInfo getDefaultCompressedTextureInfo(SkTextureCompressionType,
+                                                Mipmapped mipmapped,
+                                                Protected) const override;
 
     TextureInfo getDefaultMSAATextureInfo(const TextureInfo& singleSampledInfo,
                                           Discardable discardable) const override;
@@ -39,25 +49,27 @@ public:
 
     TextureInfo getDefaultStorageTextureInfo(SkColorType) const override;
 
+    ImmutableSamplerInfo getImmutableSamplerInfo(const TextureProxy* proxy) const override;
+
     UniqueKey makeGraphicsPipelineKey(const GraphicsPipelineDesc&,
                                       const RenderPassDesc&) const override;
     UniqueKey makeComputePipelineKey(const ComputePipelineDesc&) const override { return {}; }
 
+    GraphiteResourceKey makeSamplerKey(const SamplerDesc&) const override;
+
     uint32_t channelMask(const TextureInfo&) const override;
 
-    bool isRenderable(const TextureInfo&) const override { return false; }
-    bool isStorage(const TextureInfo&) const override {
-        // TODO: support storage textures
-        return false;
-    }
+    bool isTexturable(const VulkanTextureInfo&) const;
+
+    bool isRenderable(const TextureInfo&) const override;
+    bool isRenderable(const VulkanTextureInfo&) const;
+    bool isStorage(const TextureInfo&) const override;
 
     void buildKeyForTexture(SkISize dimensions,
                             const TextureInfo&,
                             ResourceType,
                             Shareable,
                             GraphiteResourceKey*) const override;
-
-    size_t bytesPerPixel(const TextureInfo&) const override;
 
     bool shouldAlwaysUseDedicatedImageMemory() const {
         return fShouldAlwaysUseDedicatedImageMemory;
@@ -76,6 +88,26 @@ public:
         return fShouldPersistentlyMapCpuToGpuBuffers;
     }
 
+    bool supportsYcbcrConversion() const { return fSupportsYcbcrConversion; }
+
+    bool supportsDeviceFaultInfo() const { return fSupportsDeviceFaultInfo; }
+
+    uint32_t maxVertexAttributes() const {
+        return fMaxVertexAttributes;
+    }
+    uint64_t maxUniformBufferRange() const { return fMaxUniformBufferRange; }
+
+    uint64_t maxStorageBufferRange() const { return fMaxStorageBufferRange; }
+
+    const VkPhysicalDeviceMemoryProperties2& physicalDeviceMemoryProperties2() const {
+        return fPhysicalDeviceMemoryProperties2;
+    }
+
+    bool isTransferSrc(const VulkanTextureInfo&) const;
+    bool isTransferDst(const VulkanTextureInfo&) const;
+
+    bool mustLoadFullImageForMSAA() const { return fMustLoadFullImageForMSAA; }
+
 private:
     enum VkVendor {
         kAMD_VkVendor             = 4098,
@@ -86,11 +118,13 @@ private:
         kQualcomm_VkVendor        = 20803,
     };
 
-    void init(const skgpu::VulkanInterface*,
+    void init(const ContextOptions&,
+              const skgpu::VulkanInterface*,
               VkPhysicalDevice,
               uint32_t physicalDeviceVersion,
+              const VkPhysicalDeviceFeatures2*,
               const skgpu::VulkanExtensions*,
-              const ContextOptions&);
+              Protected);
 
     void applyDriverCorrectnessWorkarounds(const VkPhysicalDeviceProperties&);
 
@@ -104,17 +138,19 @@ private:
 
     const ColorTypeInfo* getColorTypeInfo(SkColorType, const TextureInfo&) const override;
 
-    bool onIsTexturable(const TextureInfo&) const override { return false; }
+    bool onIsTexturable(const TextureInfo&) const override;
 
     bool supportsWritePixels(const TextureInfo&) const override;
     bool supportsReadPixels(const TextureInfo&) const override;
 
-    SkColorType supportedWritePixelsColorType(SkColorType dstColorType,
-                                              const TextureInfo& dstTextureInfo,
-                                              SkColorType srcColorType) const override;
-    SkColorType supportedReadPixelsColorType(SkColorType srcColorType,
-                                             const TextureInfo& srcTextureInfo,
-                                             SkColorType dstColorType) const override;
+    std::pair<SkColorType, bool /*isRGBFormat*/> supportedWritePixelsColorType(
+            SkColorType dstColorType,
+            const TextureInfo& dstTextureInfo,
+            SkColorType srcColorType) const override;
+    std::pair<SkColorType, bool /*isRGBFormat*/> supportedReadPixelsColorType(
+            SkColorType srcColorType,
+            const TextureInfo& srcTextureInfo,
+            SkColorType dstColorType) const override;
 
     // Struct that determines and stores which sample count quantities a VkFormat supports.
     struct SupportedSampleCounts {
@@ -145,10 +181,11 @@ private:
                   const VkPhysicalDeviceProperties&,
                   VkFormat);
 
-
         bool isTexturable(VkImageTiling) const;
         bool isRenderable(VkImageTiling, uint32_t sampleCount) const;
         bool isStorage(VkImageTiling) const;
+        bool isTransferSrc(VkImageTiling) const;
+        bool isTransferDst(VkImageTiling) const;
 
         std::unique_ptr<ColorTypeInfo[]> fColorTypeInfos;
         int fColorTypeInfoCount = 0;
@@ -157,12 +194,7 @@ private:
         SupportedSampleCounts fSupportedSampleCounts;
 
         // Indicates that a format is only supported if we are wrapping a texture with it.
-        SkDEBUGCODE(bool fIsWrappedOnly;)
-
-    private:
-        bool isTexturable(VkFormatFeatureFlags) const;
-        bool isRenderable(VkFormatFeatureFlags) const;
-        bool isStorage(VkFormatFeatureFlags) const;
+        SkDEBUGCODE(bool fIsWrappedOnly = false;)
     };
 
     // Map SkColorType to VkFormat.
@@ -195,18 +227,34 @@ private:
     VkFormat getFormatFromDepthStencilFlags(const SkEnumBitMask<DepthStencilFlags>& flags) const;
 
     // Map depth/stencil VkFormats to DepthStencilFormatInfo.
-    static const size_t kNumDepthStencilVkFormats = 3;
+    static const size_t kNumDepthStencilVkFormats = 5;
     DepthStencilFormatInfo fDepthStencilFormatTable[kNumDepthStencilVkFormats];
 
     DepthStencilFormatInfo& getDepthStencilFormatInfo(VkFormat);
     const DepthStencilFormatInfo& getDepthStencilFormatInfo(VkFormat) const;
 
+    uint32_t fMaxVertexAttributes;
+    uint64_t fMaxUniformBufferRange;
+    uint64_t fMaxStorageBufferRange;
+    VkPhysicalDeviceMemoryProperties2 fPhysicalDeviceMemoryProperties2;
+
+    // ColorTypeInfo struct for use w/ external formats.
+    const ColorTypeInfo fExternalFormatColorTypeInfo = {SkColorType::kRGBA_8888_SkColorType,
+                                                        SkColorType::kRGBA_8888_SkColorType,
+                                                        /*flags=*/0,
+                                                        skgpu::Swizzle::RGBA(),
+                                                        skgpu::Swizzle::RGBA()};
+
     // Various bools to define whether certain Vulkan features are supported.
     bool fSupportsMemorylessAttachments = false;
-    bool fSupportsYcbcrConversion = false; // TODO: Determine & assign real value.
+    bool fSupportsYcbcrConversion = false;
     bool fShouldAlwaysUseDedicatedImageMemory = false;
     bool fGpuOnlyBuffersMorePerformant = false;
     bool fShouldPersistentlyMapCpuToGpuBuffers = true;
+    bool fSupportsDeviceFaultInfo = false;
+
+    // Flags to enable workarounds for driver bugs
+    bool fMustLoadFullImageForMSAA = false;
 };
 
 } // namespace skgpu::graphite

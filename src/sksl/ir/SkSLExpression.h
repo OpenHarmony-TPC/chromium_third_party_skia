@@ -38,16 +38,16 @@ public:
     }
 
     Kind kind() const {
-        return (Kind) fKind;
+        return (Kind)fKind;
     }
 
-    virtual const Type& type() const {
+    const Type& type() const {
         return *fType;
     }
 
     bool isAnyConstructor() const {
         static_assert((int)Kind::kConstructorArray - 1 == (int)Kind::kChildCall);
-        static_assert((int)Kind::kConstructorStruct + 1 == (int)Kind::kFieldAccess);
+        static_assert((int)Kind::kConstructorStruct + 1 == (int)Kind::kEmpty);
         return this->kind() >= Kind::kConstructorArray && this->kind() <= Kind::kConstructorStruct;
     }
 

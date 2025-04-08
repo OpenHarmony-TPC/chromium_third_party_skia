@@ -8,10 +8,19 @@
 #ifndef SkGradientShader_DEFINED
 #define SkGradientShader_DEFINED
 
+#include "include/core/SkColor.h"
 #include "include/core/SkColorSpace.h"
+#include "include/core/SkPoint.h"
 #include "include/core/SkRefCnt.h"
-#include "include/core/SkShader.h"
+#include "include/core/SkScalar.h"
+#include "include/core/SkShader.h" // IWYU pragma: keep
 #include "include/core/SkTileMode.h"
+#include "include/private/base/SkAPI.h"
+
+#include <cstdint>
+#include <utility>
+
+class SkMatrix;
 
 /** \class SkGradientShader
 
@@ -70,8 +79,17 @@ public:
             kSRGBLinear,
             kLab,
             kOKLab,
+            // This is the same as kOKLab, except it has a simplified version of the CSS gamut
+            // mapping algorithm (https://www.w3.org/TR/css-color-4/#css-gamut-mapping)
+            // into Rec2020 space applied to it.
+            // Warning: This space is experimental and should not be used in production.
+            kOKLabGamutMap,
             kLCH,
             kOKLCH,
+            // This is the same as kOKLCH, except it has the same gamut mapping applied to it
+            // as kOKLabGamutMap does.
+            // Warning: This space is experimental and should not be used in production.
+            kOKLCHGamutMap,
             kSRGB,
             kHSL,
             kHWB,

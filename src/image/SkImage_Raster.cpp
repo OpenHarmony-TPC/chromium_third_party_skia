@@ -17,6 +17,7 @@
 #include "include/core/SkRect.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkSize.h"
+#include "include/core/SkSurface.h"
 #include "include/core/SkTypes.h"
 #include "src/base/SkRectMemcpy.h"
 #include "src/core/SkImageInfoPriv.h"
@@ -28,17 +29,7 @@
 #include <utility>
 
 class GrDirectContext;
-
-#if defined(SK_GRAPHITE)
-#include "include/gpu/graphite/GraphiteTypes.h"
-#include "include/gpu/graphite/Recorder.h"
-#include "src/gpu/graphite/Buffer.h"
-#include "src/gpu/graphite/Caps.h"
-#include "src/gpu/graphite/CommandBuffer.h"
-#include "src/gpu/graphite/RecorderPriv.h"
-#include "src/gpu/graphite/TextureUtils.h"
-#include "src/gpu/graphite/UploadTask.h"
-#endif
+class SkSurfaceProps;
 
 // fixes https://bug.skia.org/5096
 static bool is_not_subset(const SkBitmap& bm) {
@@ -91,6 +82,13 @@ bool SkImage_Raster::getROPixels(GrDirectContext*, SkBitmap* dst, CachingHint) c
     return true;
 }
 
+sk_sp<SkSurface> SkImage_Raster::onMakeSurface(skgpu::graphite::Recorder*,
+                                               const SkImageInfo& info) const {
+    const SkSurfaceProps* props = nullptr;
+    const size_t rowBytes = 0;
+    return SkSurfaces::Raster(info, rowBytes, props);
+}
+
 static SkBitmap copy_bitmap_subset(const SkBitmap& orig, const SkIRect& subset) {
     SkImageInfo info = orig.info().makeDimensions(subset.size());
     SkBitmap bitmap;
@@ -112,7 +110,7 @@ static SkBitmap copy_bitmap_subset(const SkBitmap& orig, const SkIRect& subset) 
     return bitmap;
 }
 
-sk_sp<SkImage> SkImage_Raster::onMakeSubset(const SkIRect& subset, GrDirectContext*) const {
+sk_sp<SkImage> SkImage_Raster::onMakeSubset(GrDirectContext*, const SkIRect& subset) const {
     SkBitmap copy = copy_bitmap_subset(fBitmap, subset);
     if (copy.isNull()) {
         return nullptr;
@@ -121,14 +119,18 @@ sk_sp<SkImage> SkImage_Raster::onMakeSubset(const SkIRect& subset, GrDirectConte
     }
 }
 
-#if defined(SK_GRAPHITE)
 static sk_sp<SkMipmap> copy_mipmaps(const SkBitmap& src, SkMipmap* srcMips) {
     if (!srcMips) {
         return nullptr;
     }
 
     sk_sp<SkMipmap> dst;
-    dst.reset(SkMipmap::Build(src.pixmap(), nullptr, /* computeContents= */ false));
+    dst.reset(SkMipmap::Build(src.pixmap(),
+                              /* factoryProc= */ nullptr,
+                              /* computeContents= */ false));
+    if (!dst) {
+        return nullptr;
+    }
     for (int i = 0; i < dst->countLevels(); ++i) {
         SkMipmap::Level srcLevel, dstLevel;
         srcMips->getLevel(i, &srcLevel);
@@ -139,12 +141,12 @@ static sk_sp<SkMipmap> copy_mipmaps(const SkBitmap& src, SkMipmap* srcMips) {
     return dst;
 }
 
-sk_sp<SkImage> SkImage_Raster::onMakeSubset(const SkIRect& subset,
-                                            skgpu::graphite::Recorder* recorder,
-                                            RequiredImageProperties requiredProperties) const {
+sk_sp<SkImage> SkImage_Raster::onMakeSubset(skgpu::graphite::Recorder*,
+                                            const SkIRect& subset,
+                                            RequiredProperties requiredProperties) const {
     sk_sp<SkImage> img;
 
-    if (requiredProperties.fMipmapped == skgpu::Mipmapped::kYes) {
+    if (requiredProperties.fMipmapped) {
         bool fullCopy = subset == SkIRect::MakeSize(fBitmap.dimensions());
 
         sk_sp<SkMipmap> mips = fullCopy ? copy_mipmaps(fBitmap, fBitmap.fMips.get()) : nullptr;
@@ -168,17 +170,8 @@ sk_sp<SkImage> SkImage_Raster::onMakeSubset(const SkIRect& subset,
         }
     }
 
-    if (!img) {
-        return nullptr;
-    }
-
-    if (recorder) {
-        return img->makeTextureImage(recorder, requiredProperties);
-    } else {
-        return img;
-    }
+    return img;
 }
-#endif // SK_GRAPHITE
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -247,40 +240,3 @@ sk_sp<SkImage> SkImage_Raster::onReinterpretColorSpace(sk_sp<SkColorSpace> newCS
     pixmap.setColorSpace(std::move(newCS));
     return SkImages::RasterFromPixmapCopy(pixmap);
 }
-
-#if defined(SK_GRAPHITE)
-sk_sp<SkImage> SkImage_Raster::onMakeTextureImage(skgpu::graphite::Recorder* recorder,
-                                                  RequiredImageProperties requiredProps) const {
-    return skgpu::graphite::MakeFromBitmap(recorder,
-                                           this->imageInfo().colorInfo(),
-                                           fBitmap,
-                                           this->refMips(),
-                                           skgpu::Budgeted::kNo,
-                                           requiredProps);
-}
-
-sk_sp<SkImage> SkImage_Raster::onMakeColorTypeAndColorSpace(
-        SkColorType targetCT,
-        sk_sp<SkColorSpace> targetCS,
-        skgpu::graphite::Recorder* recorder,
-        RequiredImageProperties requiredProps) const {
-    SkPixmap src;
-    SkAssertResult(fBitmap.peekPixels(&src));
-
-    SkBitmap dst;
-    if (!dst.tryAllocPixels(fBitmap.info().makeColorType(targetCT).makeColorSpace(targetCS))) {
-        return nullptr;
-    }
-
-    SkAssertResult(dst.writePixels(src));
-    dst.setImmutable();
-
-    sk_sp<SkImage> tmp = dst.asImage();
-    if (recorder) {
-        return tmp->makeTextureImage(recorder, requiredProps);
-    } else {
-        return tmp;
-    }
-}
-
-#endif

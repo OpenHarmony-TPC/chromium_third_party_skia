@@ -8,27 +8,30 @@
 #define SkStrike_DEFINED
 
 #include "include/core/SkFontMetrics.h"
-#include "include/core/SkFontTypes.h"
 #include "include/core/SkRefCnt.h"
+#include "include/core/SkScalar.h"
+#include "include/core/SkTypes.h"
 #include "include/private/base/SkMutex.h"
-#include "include/private/base/SkTemplates.h"
+#include "include/private/base/SkSpan_impl.h"
+#include "include/private/base/SkThreadAnnotations.h"
 #include "src/base/SkArenaAlloc.h"
-#include "src/core/SkDescriptor.h"
 #include "src/core/SkGlyph.h"
-#include "src/core/SkGlyphRunPainter.h"
+#include "src/core/SkScalerContext.h"
 #include "src/core/SkStrikeSpec.h"
 #include "src/core/SkTHash.h"
+#include "src/text/StrikeForGPU.h"
 
+#include <cstddef>
 #include <memory>
+#include <vector>
 
-class SkScalerContext;
+class SkDescriptor;
+class SkDrawable;
+class SkPath;
+class SkReadBuffer;
 class SkStrikeCache;
 class SkTraceMemoryDump;
-
-namespace sktext {
-union IDOrPath;
-union IDOrDrawable;
-}  // namespace sktext
+class SkWriteBuffer;
 
 class SkStrikePinner {
 public:
@@ -68,7 +71,7 @@ public:
 
     // If the path has never been set, then add a path to glyph. This is deprecated.
     const SkPath* mergePath(
-            SkGlyph* glyph, const SkPath* path, bool hairline) SK_EXCLUDES(fStrikeLock);
+            SkGlyph* glyph, const SkPath* path, bool hairline, bool modified) SK_EXCLUDES(fStrikeLock);
 
     // If the drawable has never been set, then add a drawable to glyph. This is deprecated.
     const SkDrawable* mergeDrawable(

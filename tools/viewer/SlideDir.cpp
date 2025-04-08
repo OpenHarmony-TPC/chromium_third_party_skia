@@ -15,7 +15,6 @@
 #include "include/core/SkRect.h"
 #include "include/core/SkString.h"
 #include "include/core/SkTypeface.h"
-#include "include/private/SkBitmaskEnum.h"
 #include "include/private/base/SkTPin.h"
 #include "include/utils/SkTextUtils.h"
 #include "modules/sksg/include/SkSGDraw.h"
@@ -28,6 +27,7 @@
 #include "modules/sksg/include/SkSGScene.h"
 #include "modules/sksg/include/SkSGText.h"
 #include "modules/sksg/include/SkSGTransform.h"
+#include "src/base/SkBitmaskEnum.h"
 #include "tools/skui/InputState.h"
 #include "tools/skui/ModifierKey.h"
 #include "tools/timer/TimeUtils.h"
@@ -110,7 +110,7 @@ protected:
     const RenderNode* onNodeAt(const SkPoint&) const override { return nullptr; }
 
 private:
-    void tick(SkMSec t) {
+    void tick(TimeUtils::MSec t) {
         fSlide->animate(t * 1e6);
         this->invalidate();
     }
@@ -374,7 +374,7 @@ void SlideDir::draw(SkCanvas* canvas) {
 }
 
 bool SlideDir::animate(double nanos) {
-    SkMSec msec = TimeUtils::NanosToMSec(nanos);
+    TimeUtils::MSec msec = TimeUtils::NanosToMSec(nanos);
     if (fTimeBase == 0) {
         // Reset the animation time.
         fTimeBase = msec;

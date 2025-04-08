@@ -7,11 +7,16 @@
 
 #include "src/gpu/ganesh/geometry/GrPathUtils.h"
 
-#include "include/gpu/GrTypes.h"
-#include "src/base/SkMathPriv.h"
-#include "src/base/SkUtils.h"
+#include "include/core/SkMatrix.h"
+#include "include/core/SkRect.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkFloatingPoint.h"
+#include "src/core/SkGeometry.h"
+#include "src/core/SkPathEnums.h"
 #include "src/core/SkPointPriv.h"
 #include "src/gpu/tessellate/WangsFormula.h"
+
+#include <algorithm>
 
 using namespace skia_private;
 
@@ -155,7 +160,7 @@ void GrPathUtils::QuadUVMatrix::set(const SkPoint qPts[3]) {
     double a8 = x0*y1-x1*y0;
     double det = a2 + a5 + a8;
 
-    if (!sk_float_isfinite(det)
+    if (!SkIsFinite(det)
         || SkScalarNearlyZero((float)det, SK_ScalarNearlyZero * SK_ScalarNearlyZero)) {
         // The quad is degenerate. Hopefully this is rare. Find the pts that are
         // farthest apart to compute a line (unless it is really a pt).
@@ -455,7 +460,7 @@ void convert_noninflect_cubic_to_quads_with_constraint(const SkPoint p[4],
             cAvg.fX = ab.fY * z1 - z0 * dc.fY;
             cAvg.fY = z0 * dc.fX - ab.fX * z1;
             SkScalar z = ab.fX * dc.fY - ab.fY * dc.fX;
-            z = SkScalarInvert(z);
+            z = sk_ieee_float_divide(1.0f, z);
             cAvg.fX *= z;
             cAvg.fY *= z;
             if (sublevel <= kMaxSubdivs) {
@@ -492,7 +497,7 @@ void GrPathUtils::convertCubicToQuads(const SkPoint p[4],
     if (!p[0].isFinite() || !p[1].isFinite() || !p[2].isFinite() || !p[3].isFinite()) {
         return;
     }
-    if (!SkScalarIsFinite(tolScale)) {
+    if (!SkIsFinite(tolScale)) {
         return;
     }
     SkPoint chopped[10];
@@ -513,7 +518,7 @@ void GrPathUtils::convertCubicToQuadsConstrainToTangents(const SkPoint p[4],
     if (!p[0].isFinite() || !p[1].isFinite() || !p[2].isFinite() || !p[3].isFinite()) {
         return;
     }
-    if (!SkScalarIsFinite(tolScale)) {
+    if (!SkIsFinite(tolScale)) {
         return;
     }
     SkPoint chopped[10];

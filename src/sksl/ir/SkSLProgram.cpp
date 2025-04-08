@@ -6,7 +6,6 @@
  */
 
 #include "src/sksl/SkSLAnalysis.h"
-#include "src/sksl/SkSLModifiersPool.h"
 #include "src/sksl/SkSLPool.h"
 #include "src/sksl/SkSLProgramSettings.h"
 #include "src/sksl/analysis/SkSLProgramUsage.h"
@@ -16,7 +15,6 @@
 #include "src/sksl/ir/SkSLSymbol.h"
 #include "src/sksl/ir/SkSLSymbolTable.h" // IWYU pragma: keep
 
-#include <type_traits>
 #include <utility>
 
 namespace SkSL {
@@ -25,20 +23,14 @@ Program::Program(std::unique_ptr<std::string> source,
                  std::unique_ptr<ProgramConfig> config,
                  std::shared_ptr<Context> context,
                  std::vector<std::unique_ptr<ProgramElement>> elements,
-                 std::vector<const ProgramElement*> sharedElements,
-                 std::unique_ptr<ModifiersPool> modifiers,
-                 std::shared_ptr<SymbolTable> symbols,
-                 std::unique_ptr<Pool> pool,
-                 Inputs inputs)
+                 std::unique_ptr<SymbolTable> symbols,
+                 std::unique_ptr<Pool> pool)
         : fSource(std::move(source))
         , fConfig(std::move(config))
         , fContext(context)
-        , fModifiers(std::move(modifiers))
-        , fSymbols(symbols)
+        , fSymbols(std::move(symbols))
         , fPool(std::move(pool))
-        , fOwnedElements(std::move(elements))
-        , fSharedElements(std::move(sharedElements))
-        , fInputs(inputs) {
+        , fOwnedElements(std::move(elements)) {
     fUsage = Analysis::GetUsage(*this);
 }
 
@@ -51,7 +43,6 @@ Program::~Program() {
     fOwnedElements.clear();
     fContext.reset();
     fSymbols.reset();
-    fModifiers.reset();
 }
 
 std::string Program::description() const {
