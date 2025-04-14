@@ -457,7 +457,7 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::makeTypeface(SkFontData* fontData) const
     int ttcIndex = fontData->getIndex();
     int axisCount = fontData->getAxisCount();
     SkStreamAsset* stream = fontData->getStream();
-    if (axisCount == 0) {
+    if (axisCount <= 0) {
         if (!fontScanner.scanFont(stream, ttcIndex, &fontInfo.familyName, &fontInfo.style,
             &fontInfo.isFixedWidth, nullptr)) {
             LOGE("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
@@ -472,7 +472,7 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::makeTypeface(SkFontData* fontData) const
             return nullptr;
         }
         if (axisDefs.size() > 0) {
-            fontInfo.setAxisSet(axisCount, axis, axisDefs.data());
+            fontInfo.setAxisSet(std::min(axisCount, axisDefs.size()), axis, axisDefs.data());
         }
     }
 
