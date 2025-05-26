@@ -7,7 +7,6 @@
 
 #include "src/sksl/codegen/SkSLGLSLCodeGenerator.h"
 
-#include "arkweb/build/features/features.h"
 #include "include/core/SkSpan.h"
 #include "include/core/SkTypes.h"
 #include "include/private/base/SkTArray.h"
@@ -74,6 +73,7 @@
 #include "src/sksl/ir/SkSLVariable.h"
 #include "src/sksl/ir/SkSLVariableReference.h"
 #include "src/sksl/spirv.h"
+#include "arkweb/build/features/features.h"
 
 #include <cstddef>
 #include <cstdint>

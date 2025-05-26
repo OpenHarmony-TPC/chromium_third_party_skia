@@ -156,7 +156,9 @@ sk_sp<SkTypeface> SkFontMgr::legacyMakeTypeface(const char familyName[], SkFontS
 }
 
 #if BUILDFLAG(ARKWEB_THEME_FONT)
-void SkFontMgr::InvalidateThemeFont(int fd) { this->onInvalidateThemeFont(fd); }
+void SkFontMgr::InvalidateThemeFont(int fd) {
+    this->onInvalidateThemeFont(fd);
+}
 #endif
 
 sk_sp<SkFontMgr> SkFontMgr::RefEmpty() {

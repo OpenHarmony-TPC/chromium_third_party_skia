@@ -183,8 +183,7 @@ public:
                              may be nullptr
         @return              SkSurface if all parameters are valid; otherwise, nullptr
     */
-    static sk_sp<SkSurface> MakeRaster(const SkImageInfo& imageInfo,
-                                       size_t rowBytes,
+    static sk_sp<SkSurface> MakeRaster(const SkImageInfo& imageInfo, size_t rowBytes,
                                        const SkSurfaceProps* surfaceProps);
 
     /** Allocates raster SkSurface. SkCanvas returned by SkSurface draws directly into pixels.

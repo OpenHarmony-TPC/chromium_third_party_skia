@@ -158,8 +158,7 @@ sk_sp<const SkCapabilities> SkSurface_Raster::onCapabilities() {
 }
 
 #if BUILDFLAG(ARKWEB_DRAG_DROP)
-sk_sp<SkSurface> SkSurface::MakeRaster(const SkImageInfo& info,
-                                       size_t rowBytes,
+sk_sp<SkSurface> SkSurface::MakeRaster(const SkImageInfo& info, size_t rowBytes,
                                        const SkSurfaceProps* props) {
     if (!SkSurfaceValidateRasterInfo(info)) {
         return nullptr;

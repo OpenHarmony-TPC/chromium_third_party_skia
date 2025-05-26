@@ -7,6 +7,7 @@
 
 #include "include/codec/SkCodec.h"
 
+#include "arkweb/build/features/features.h"
 #include "include/codec/SkCodecAnimation.h"
 #include "include/codec/SkPixmapUtils.h"
 #include "include/core/SkAlphaType.h"
@@ -47,7 +48,11 @@
 // #endif
 
 #if defined(SK_HAS_HEIF_LIBRARY)
+#if BUILDFLAG(ARKWEB_HEIF_SUPPORT)
+#include "src/codec/SkHeifCodec.h"
+#else
 #include "include/android/SkHeifDecoder.h"
+#endif
 #endif
 
 #if defined(SK_CODEC_DECODES_ICO)
@@ -129,9 +134,6 @@ static std::vector<Decoder>* get_decoders_for_editing() {
 #endif
 #if defined(SK_CODEC_DECODES_JPEGXL)
             decoders->push_back(SkJpegxlDecoder::Decoder());
-#endif
-#if defined(SK_HAS_HEIF_LIBRARY)
-            decoders->push_back(SkHeifDecoder::Decoder());
 #endif
 #if defined(SK_CODEC_DECODES_RAW)
             decoders->push_back(SkRawDecoder::Decoder());
