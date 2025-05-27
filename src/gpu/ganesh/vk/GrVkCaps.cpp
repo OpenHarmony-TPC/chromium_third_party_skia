@@ -535,15 +535,13 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
     }
 
     // On Mali galaxy s7 we see lots of rendering issues when we suballocate VkImages.
-    if ((kARM_VkVendor == properties.vendorID && androidAPIVersion <= 28) ||
-        kHisi_VkVendor == properties.vendorID) {
+    if ((kARM_VkVendor == properties.vendorID && androidAPIVersion <= 28) || kHisi_VkVendor == properties.vendorID) {
         fShouldAlwaysUseDedicatedImageMemory = true;
     }
 
     // On Mali galaxy s7 and s9 we see lots of rendering issues with image filters dropping out when
     // using only primary command buffers. We also see issues on the P30 running android 28.
-    if ((kARM_VkVendor == properties.vendorID && androidAPIVersion <= 28) ||
-        kHisi_VkVendor == properties.vendorID) {
+    if ((kARM_VkVendor == properties.vendorID && androidAPIVersion <= 28) || kHisi_VkVendor == properties.vendorID) {
         fPreferPrimaryOverSecondaryCommandBuffers = false;
         // If we are using secondary command buffers our code isn't setup to insert barriers into
         // the secondary cb so we need to disable support for them.
@@ -561,7 +559,7 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
 
     // On the Mali G76 and T880, the Perlin noise code needs to aggressively snap to multiples
     // of 1/255 to avoid artifacts in the double table lookup.
-    if (kARM_VkVendor == properties.vendorID || kHisi_VkVendor == properties.vendorID) {
+    if (kARM_VkVendor == properties.vendorID || kHisi_VkVendor  == properties.vendorID) {
         fShaderCaps->fPerlinNoiseRoundingFix = true;
     }
 
@@ -576,8 +574,10 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
     // discardable msaa attachments. This causes the resolve to resolve uninitialized data from the
     // msaa image into the resolve image.
     // This also occurs on swiftshader: b/303705884
-    if (properties.vendorID == kQualcomm_VkVendor || properties.vendorID == kARM_VkVendor ||
-        (properties.vendorID == kGoogle_VkVendor && properties.deviceID == kSwiftshader_DeviceID) ||
+    if (properties.vendorID == kQualcomm_VkVendor ||
+        properties.vendorID == kARM_VkVendor ||
+        (properties.vendorID == kGoogle_VkVendor &&
+         properties.deviceID == kSwiftshader_DeviceID) ||
         properties.vendorID == kHisi_VkVendor) {
         fMustLoadFullImageWithDiscardableMSAA = true;
     }
@@ -600,7 +600,7 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
     }
 
     if (kHisi_VkVendor == properties.vendorID) {
-        fAvoidWritePixelsFastPath = false;  // bugs.skia.org/8064
+        fAvoidWritePixelsFastPath = false; // bugs.skia.org/8064
     }
 
     // AMD advertises support for MAX_UINT vertex input attributes, but in reality only supports 32.
@@ -633,8 +633,7 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
 
     // On ARM indirect draws are broken on Android 9 and earlier. This was tested on a P30 and
     // Mate 20x running android 9.
-    if ((properties.vendorID == kARM_VkVendor && androidAPIVersion <= 28) ||
-        kHisi_VkVendor == properties.vendorID) {
+    if ((properties.vendorID == kARM_VkVendor && androidAPIVersion <= 28) || kHisi_VkVendor == properties.vendorID) {
         fNativeDrawIndirectSupport = false;
     }
 
