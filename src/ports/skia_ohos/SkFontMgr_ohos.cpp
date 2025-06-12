@@ -139,13 +139,6 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyleCharacter(const char familyN
         return nullptr;
     }
 
-#ifdef OHOS_THEME_FONT
-    auto* themeFontTypeface = fontConfig->getThemeFontTypeface();
-    if (themeFontTypeface && themeFontTypeface->unicharToGlyph(character) != 0) {
-        return sk_ref_sp(themeFontTypeface);
-    }
-#endif
-
     const FallbackForMap& fallbackForMap = fontConfig->getFallbackForMap();
     const FallbackSet& fallbackSet = fontConfig->getFallbackSet();
     SkString defaultFamily("");
