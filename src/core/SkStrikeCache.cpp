@@ -251,6 +251,7 @@ size_t SkStrikeCache::internalPurge(size_t minBytesNeeded, bool checkPinners) {
     #if BUILDFLAG(IS_ARKWEB)
         if (strike->fRemoved) {
             LOG(ERROR) << "strike is already removed or invalid strike pointer";
+            continue;
         }
     #endif
             this->internalRemoveStrike(strike);
