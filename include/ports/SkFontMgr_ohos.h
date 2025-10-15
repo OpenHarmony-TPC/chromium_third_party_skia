@@ -113,19 +113,19 @@ public:
     public:
         SystemFontLoader_OHOS() = default;
         ~SystemFontLoader_OHOS() = default;
-        void loadSystemFonts(SkString dir, const SkFontScanner_FreeType&, Families*) const;
+        void loadFonts(Families* families) const;
 
     private:
         static SkFontStyleSet_OHOS* find_family(SkFontMgr_OHOS::Families& families,
                                                 const char familyName[]);
-        static void load_directory_fonts(const SkFontScanner_FreeType& scanner,
-                                         const SkString& directory,
-                                         const char* suffix,
-                                         SkFontMgr_OHOS::Families* families);
-        static void parse_typeface(const SkFontScanner_FreeType& scanner,
-                                   const std::unique_ptr<SkStreamAsset>& stream,
-                                   const SkString& filename,
-                                   SkFontMgr_OHOS::Families* families);
+        void parse_face(const std::unique_ptr<SkStreamAsset>& stream,
+                        const char* filename,
+                        SkFontMgr_OHOS::Families* families) const;
+        void parse_instance(const std::unique_ptr<SkStreamAsset>& stream,
+                            const char* filename,
+                            SkFontMgr_OHOS::Families* families,
+                            int faceIndex) const;
+        SkFontScanner_FreeType fScanner;
     };
     explicit SkFontMgr_OHOS(const SystemFontLoader_OHOS& loader);
     ~SkFontMgr_OHOS() override;
@@ -154,7 +154,6 @@ protected:
 private:
     Families fFamilies;
     sk_sp<SkFontStyleSet> fDefaultFamily;
-    SkFontScanner_FreeType fScanner;
     OH_Drawing_FontConfigInfo* fontConfigInfo;
 
     sk_sp<SkTypeface> findTypeface(OH_Drawing_FontFallbackGroup& fallbackGroup,
@@ -167,6 +166,8 @@ private:
                      int bcp47Count,
                      const int tps[]) const;
     int findFallbackGroup(const char familyName[]) const;
+    // match alias of generic fonts in OHOS
+    sk_sp<SkTypeface> matchAlias(const char familyName[], SkFontStyle fontStyle) const;
 };
 
 SK_API sk_sp<SkFontMgr> SkFontMgr_New_OHOS();
