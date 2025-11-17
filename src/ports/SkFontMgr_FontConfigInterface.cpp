@@ -254,7 +254,7 @@ protected:
     }
 
 #if BUILDFLAG(ARKWEB_THEME_FONT)
-    void onInvalidateThemeFont(int fd) override {}
+    void onInvalidateThemeFont(const std::vector<int>& fds) override {}
 #endif
 };
 
