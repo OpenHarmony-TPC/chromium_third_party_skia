@@ -83,7 +83,7 @@ protected:
     }
 
 #if BUILDFLAG(ARKWEB_THEME_FONT)
-    void onInvalidateThemeFont(int fd) override {}
+    void onInvalidateThemeFont(const std::vector<int>& fds) override {}
 #endif
 };
 
@@ -156,8 +156,8 @@ sk_sp<SkTypeface> SkFontMgr::legacyMakeTypeface(const char familyName[], SkFontS
 }
 
 #if BUILDFLAG(ARKWEB_THEME_FONT)
-void SkFontMgr::InvalidateThemeFont(int fd) {
-    this->onInvalidateThemeFont(fd);
+void SkFontMgr::InvalidateThemeFont(const std::vector<int>& fds) {
+    this->onInvalidateThemeFont(fds);
 }
 #endif
 
