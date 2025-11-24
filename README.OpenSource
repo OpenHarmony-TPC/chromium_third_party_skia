@@ -1,0 +1,11 @@
+[
+    {
+        "Name": "skia",
+        "License": "BSD-3-Clause",
+        "License File": "LICENSE",
+        "Version Number": "c17fe9bc158c29de3cdd655ac73d14f52c17810a",
+        "Upstream URL": "https://skia.googlesource.com/skia.git@c17fe9bc158c29de3cdd655ac73d14f52c17810a",
+        "Owner": "huamengzheng@huawei.com",
+        "Description": "skia是个2D向量图形处理函数库，包含字型、坐标转换，以及点阵图都有高效能且简洁的表现"
+    }
+]
