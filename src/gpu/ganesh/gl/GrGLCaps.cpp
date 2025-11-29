@@ -24,6 +24,7 @@
 #include "include/private/base/SkTo.h"
 #include "src/core/SkCompressedDataUtils.h"
 #include "src/gpu/Blend.h"
+#include "src/gpu/GpuTypesPriv.h"
 #include "src/gpu/ganesh/GrBackendUtils.h"
 #include "src/gpu/ganesh/GrProgramDesc.h"
 #include "src/gpu/ganesh/GrRenderTarget.h"
@@ -89,6 +90,7 @@ GrGLCaps::GrGLCaps(const GrContextOptions& contextOptions,
     fMustResetBlendFuncBetweenDualSourceAndDisable = false;
     fBindTexture0WhenChangingTextureFBOMultisampleCount = false;
     fRebindColorAttachmentAfterCheckFramebufferStatus = false;
+    fBindDefaultFramebufferOnPresent = false;
     fFlushBeforeWritePixels = false;
     fDisableScalingCopyAsDraws = false;
     fPadRG88TransferAlignment = false;
@@ -796,6 +798,32 @@ void GrGLCaps::init(const GrContextOptions& contextOptions,
         fFenceType = FenceType::kNVFence;
     }
     fFinishedProcAsyncCallbackSupport = fFenceSyncSupport;
+
+    if (GR_IS_GR_WEBGL(standard)) {
+        if (version >= GR_GL_VER(2, 0)) {
+            if (ctxInfo.hasExtension("EXT_disjoint_timer_query_webgl2") ||
+                ctxInfo.hasExtension("GL_EXT_disjoint_timer_query_webgl2")) {
+                fTimerQueryType = TimerQueryType::kDisjoint;
+            }
+        } else {
+            if (ctxInfo.hasExtension("EXT_disjoint_timer_query") ||
+                ctxInfo.hasExtension("GL_EXT_disjoint_timer_query")) {
+                fTimerQueryType = TimerQueryType::kDisjoint;
+            }
+        }
+    } else if (GR_IS_GR_GL_ES(standard)) {
+        if (ctxInfo.hasExtension("GL_EXT_disjoint_timer_query")) {
+            fTimerQueryType = TimerQueryType::kDisjoint;
+        }
+    } else if (GR_IS_GR_GL(standard)) {
+        if (version >= GR_GL_VER(3, 3) || ctxInfo.hasExtension("GL_EXT_timer_query") ||
+            ctxInfo.hasExtension("GL_ARB_timer_query")) {
+            fTimerQueryType = TimerQueryType::kRegular;
+        }
+    }
+    if (fTimerQueryType != TimerQueryType::kNone) {
+        fSupportedGpuStats |= skgpu::GpuStatsFlags::kElapsedTime;
+    }
 
     // Safely moving textures between contexts requires semaphores.
     fCrossContextTextureSupport = fSemaphoreSupport;
@@ -3910,6 +3938,10 @@ void GrGLCaps::applyDriverCorrectnessWorkarounds(const GrGLContextInfo& ctxInfo,
                                                  const GrGLInterface* glInterface,
                                                  GrShaderCaps* shaderCaps,
                                                  FormatWorkarounds* formatWorkarounds) {
+    GrGLDriverVersion driverVersion =
+        ctxInfo.angleBackend() == GrGLANGLEBackend::kUnknown ? ctxInfo.driverVersion()
+                                                             : ctxInfo.angleDriverVersion();
+
     // A driver bug on the nexus 6 causes incorrect dst copies when invalidate is called beforehand.
     // Thus we are disabling this extension for now on Adreno4xx devices.
     if (ctxInfo.renderer() == GrGLRenderer::kAdreno430       ||
@@ -4146,7 +4178,8 @@ void GrGLCaps::applyDriverCorrectnessWorkarounds(const GrGLContextInfo& ctxInfo,
     }
 
     // TODO: Don't apply this on iOS?
-    if (ctxInfo.renderer() == GrGLRenderer::kPowerVRRogue) {
+    if (ctxInfo.renderer() == GrGLRenderer::kPowerVRRogue &&
+        driverVersion <  GR_GL_DRIVER_VER(23, 2, 0)) {
         // Our Chromebook with GrGLRenderer::kPowerVRRogue crashes on large instanced draws. The
         // current minimum number of instances observed to crash is somewhere between 2^14 and 2^15.
         // Keep the number of instances below 1000, just to be safe.
@@ -4491,7 +4524,7 @@ void GrGLCaps::applyDriverCorrectnessWorkarounds(const GrGLContextInfo& ctxInfo,
     // GL_RENDERER: PowerVR Rogue AXE-1-16M
     // GL_VENDOR  : Imagination Technologies
     if (ctxInfo.renderer() == GrGLRenderer::kPowerVRRogue &&
-        ctxInfo.driverVersion() < GR_GL_DRIVER_VER(1, 15, 0)) {
+        driverVersion < GR_GL_DRIVER_VER(1, 15, 0)) {
         fDisableTessellationPathRenderer = true;
     }
 
@@ -4666,8 +4699,8 @@ void GrGLCaps::applyDriverCorrectnessWorkarounds(const GrGLContextInfo& ctxInfo,
     // We could limit this < 1.13 on ChromeOS but we don't really have a good way to detect
     // ChromeOS from here.
     if (ctxInfo.renderer()      == GrGLRenderer::kPowerVRRogue &&
-        ctxInfo.driver()        == GrGLDriver::kImagination    &&
-        ctxInfo.driverVersion() <  GR_GL_DRIVER_VER(1, 16, 0)) {
+        ctxInfo.driver()        == GrGLDriver::kImagination &&
+        driverVersion <  GR_GL_DRIVER_VER(1, 16, 0)) {
         fShaderCaps->fShaderDerivativeSupport = false;
     }
 
@@ -4722,6 +4755,16 @@ void GrGLCaps::applyDriverCorrectnessWorkarounds(const GrGLContextInfo& ctxInfo,
         ctxInfo.driverVersion()  < GR_GL_DRIVER_VER(1, 26, 0)) {
         fRebindColorAttachmentAfterCheckFramebufferStatus = true;
     }
+
+#ifdef SK_BUILD_FOR_MAC
+    // skbug.com/398631003
+    if (ctxInfo.vendor() == GrGLVendor::kApple &&
+        // Even the GL ANGLE backend doesn't have this issue, so the workaround is only necessary
+        // if we're not rendering with ANGLE.
+        ctxInfo.angleBackend() == GrGLANGLEBackend::kUnknown) {
+        fBindDefaultFramebufferOnPresent = true;
+    }
+#endif
 
     // skbug.com/13286
     // We found that the P30 produces a GL error when setting GL_TEXTURE_MAX_ANISOTROPY as a sampler

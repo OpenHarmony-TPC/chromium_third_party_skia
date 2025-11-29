@@ -3,6 +3,7 @@ load(
     "skia_cc_library",
     "skia_filegroup",
     "skia_objc_library",
+    "supports_platforms",
 )
 
 package(
@@ -170,6 +171,7 @@ skia_cc_library(
     visibility = ["//:__pkg__"],
     deps = [
         ":freetype_support",
+        ":typeface_proxy",
         "//:core",
         "//src/base",
         "//src/core:core_priv",
@@ -189,6 +191,7 @@ skia_cc_library(
     visibility = ["//:__pkg__"],
     deps = [
         ":freetype_support",
+        ":typeface_proxy",
         "//:core",
         "//src/base",
         "//src/core:core_priv",
@@ -215,6 +218,10 @@ skia_objc_library(
         "CoreFoundation",
         "CoreText",
     ],
+    target_compatible_with = supports_platforms(
+        "@platforms//os:macos",
+        "@platforms//os:ios",
+    ),
     visibility = ["//:__pkg__"],
     deps = [
         ":coretext_typeface",
@@ -329,6 +336,15 @@ skia_cc_library(
 )
 
 skia_cc_library(
+    name = "typeface_proxy",
+    srcs = [":typeface_proxy_srcs"],
+    hdrs = [":typeface_proxy_hdrs"],
+    deps = [
+        "//:core",
+    ],
+)
+
+skia_cc_library(
     name = "fontmgr_fontconfig_freetype",
     srcs = [
         "SkFontMgr_fontconfig.cpp",
@@ -337,12 +353,16 @@ skia_cc_library(
         "//include/ports:fontconfig_fontmgr_hdrs",
     ],
     defines = ["SK_FONTMGR_FONTCONFIG_AVAILABLE"],
+    target_compatible_with = supports_platforms(
+        "@platforms//os:linux",
+    ),
     visibility = [
         "//:__pkg__",
         "//tools/fonts:__pkg__",
     ],
     deps = [
         ":freetype_support",
+        ":typeface_proxy",
         "//:core",
         "//bazel/external/fontconfig",
         "//src/base",
@@ -359,6 +379,9 @@ skia_cc_library(
         "//include/ports:fontconfig_fontmgr_hdrs",
     ],
     defines = ["SK_FONTMGR_FONTCONFIG_AVAILABLE"],
+    target_compatible_with = supports_platforms(
+        "@platforms//os:linux",
+    ),
     visibility = [
         "//:__pkg__",
         "//tools/fonts:__pkg__",
@@ -385,6 +408,16 @@ skia_filegroup(
         "SkScalerContext_mac_ct.h",
         "SkTypeface_mac_ct.cpp",
     ],
+)
+
+skia_filegroup(
+    name = "typeface_proxy_hdrs",
+    srcs = ["SkTypeface_proxy.h"],
+)
+
+skia_filegroup(
+    name = "typeface_proxy_srcs",
+    srcs = ["SkTypeface_proxy.cpp"],
 )
 
 skia_objc_library(

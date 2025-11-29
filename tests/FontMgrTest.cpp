@@ -43,7 +43,7 @@ DEF_TEST(FontMgr_Font, reporter) {
     REPORTER_ASSERT(reporter, 1 == font.getScaleX());
     REPORTER_ASSERT(reporter, 0 == font.getSkewX());
 
-    uint16_t glyphs[5];
+    SkGlyphID glyphs[5];
     sk_bzero(glyphs, sizeof(glyphs));
 
     // Check that no glyphs are copied with insufficient storage.
@@ -117,24 +117,35 @@ DEF_TEST(FontMgr_Iter, reporter) {
             set->getStyle(j, &fs, &sname);
 
             if (FLAGS_verboseFontMgr) {
-                SkDebugf("\t[%d] %s [%3d %d %d]\n", j, sname.c_str(),
+                SkDebugf("\t[%d] %s [%3d %d %d]", j, sname.c_str(),
                          fs.weight(), fs.width(), fs.slant());
             }
 
             sk_sp<SkTypeface> face1(set->createTypeface(j));
             if (!face1) {
-                REPORTER_ASSERT(reporter, face1.get());
+                REPORTER_ASSERT(reporter, face1.get(),
+                                "Could not create %s %s.", fname.c_str(), sname.c_str());
                 continue;
             }
             SkString name1;
             face1->getFamilyName(&name1);
             SkFontStyle s1 = face1->fontStyle();
 
+            SkString resource1;
+            face1->getResourceName(&resource1);
+            if (FLAGS_verboseFontMgr) {
+                SkDebugf(" \"%s\" \"%s\"\n", name1.c_str(), resource1.c_str());
+            }
+
             // Note that fs != s1 is fine, though probably rare.
 
             sk_sp<SkTypeface> face2(fm->matchFamilyStyle(name1.c_str(), s1));
             if (!face2) {
-                REPORTER_ASSERT(reporter, face2.get());
+                // The Ubunutu 18.04 test machines have Noto Emoji but it cannot be found by name.
+                if (name1.equals("Noto Emoji")) {
+                    continue;
+                }
+                REPORTER_ASSERT(reporter, face2.get(), "Could not find %s", name1.c_str());
                 continue;
             }
             SkString name2;
@@ -142,13 +153,10 @@ DEF_TEST(FontMgr_Iter, reporter) {
 
             REPORTER_ASSERT(reporter, name1 == name2, "%s == %s", name1.c_str(), name2.c_str());
 
-            // TODO: This should work, but Mac matches the wrong font sometimes.
-            if ((false)) {
-                SkFontStyle s2 = face2->fontStyle();
-                REPORTER_ASSERT(reporter, s1 == s2, "%s [%3d %d %d] != %s [%3d %d %d]",
-                                name1.c_str(), s1.weight(), s1.width(), s1.slant(),
-                                name2.c_str(), s2.weight(), s2.width(), s2.slant());
-            }
+            SkFontStyle s2 = face2->fontStyle();
+            REPORTER_ASSERT(reporter, s1 == s2, "%s [%3d %d %d] != %s [%3d %d %d]",
+                            name1.c_str(), s1.weight(), s1.width(), s1.slant(),
+                            name2.c_str(), s2.weight(), s2.width(), s2.slant());
         }
     }
 }
@@ -191,8 +199,7 @@ DEF_TEST(FontMgr_MatchStyleCSS3, reporter) {
         std::unique_ptr<SkScalerContext> onCreateScalerContext(
             const SkScalerContextEffects& effects, const SkDescriptor* desc) const override
         {
-            return SkScalerContext::MakeEmpty(
-                    sk_ref_sp(const_cast<TestTypeface*>(this)), effects, desc);
+            return SkScalerContext::MakeEmpty(*const_cast<TestTypeface*>(this), effects, desc);
         }
         void onFilterRec(SkScalerContextRec*) const override { }
         std::unique_ptr<SkAdvancedTypefaceMetrics> onGetAdvancedMetrics() const override {
