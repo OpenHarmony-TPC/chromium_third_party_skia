@@ -11,6 +11,7 @@
 #include "include/core/SkRect.h"
 #include "src/base/SkArenaAlloc.h"
 #include "src/base/SkTBlockList.h"
+#include "src/gpu/graphite/CommandTypes.h"
 #include "src/gpu/graphite/DrawTypes.h"
 
 namespace skgpu::graphite {
@@ -30,7 +31,10 @@ namespace DrawPassCommands {
     M(BindGraphicsPipeline)              \
     M(SetBlendConstants)                 \
     M(BindUniformBuffer)                 \
-    M(BindDrawBuffers)                   \
+    M(BindStaticDataBuffer)              \
+    M(BindAppendDataBuffer)              \
+    M(BindIndirectBuffer)                \
+    M(BindIndexBuffer)                   \
     M(BindTexturesAndSamplers)           \
     M(SetScissor)                        \
     M(Draw)                              \
@@ -38,7 +42,8 @@ namespace DrawPassCommands {
     M(DrawInstanced)                     \
     M(DrawIndexedInstanced)              \
     M(DrawIndirect)                      \
-    M(DrawIndexedIndirect)
+    M(DrawIndexedIndirect)               \
+    M(AddBarrier)
 
 // Defines DrawPassCommands::Type, an enum of all draw command types.
 #define ENUM(T) k##T,
@@ -78,17 +83,20 @@ COMMAND(SetBlendConstants,
 COMMAND(BindUniformBuffer,
             BindBufferInfo fInfo;
             UniformSlot fSlot);
-COMMAND(BindDrawBuffers,
-            BindBufferInfo fVertices;
-            BindBufferInfo fInstances;
-            BindBufferInfo fIndices;
+COMMAND(BindStaticDataBuffer,
+            BindBufferInfo fStaticData);
+COMMAND(BindAppendDataBuffer,
+            BindBufferInfo fAppendData)
+COMMAND(BindIndexBuffer,
+            BindBufferInfo fIndices);
+COMMAND(BindIndirectBuffer,
             BindBufferInfo fIndirect);
 COMMAND(BindTexturesAndSamplers,
             int fNumTexSamplers;
             PODArray<int> fTextureIndices;
             PODArray<int> fSamplerIndices);
 COMMAND(SetScissor,
-            SkIRect fScissor);
+            Scissor fScissor);
 COMMAND(Draw,
             PrimitiveType fType;
             uint32_t fBaseVertex;
@@ -115,6 +123,8 @@ COMMAND(DrawIndirect,
             PrimitiveType fType);
 COMMAND(DrawIndexedIndirect,
             PrimitiveType fType);
+COMMAND(AddBarrier,
+            BarrierType fType);
 
 #undef COMMAND
 
@@ -154,14 +164,23 @@ public:
     }
 
     void setScissor(SkIRect scissor) {
-        this->add<SetScissor>(scissor);
+        this->add<SetScissor>(Scissor(scissor));
     }
 
-    void bindDrawBuffers(BindBufferInfo vertexAttribs,
-                         BindBufferInfo instanceAttribs,
-                         BindBufferInfo indices,
-                         BindBufferInfo indirect) {
-        this->add<BindDrawBuffers>(vertexAttribs, instanceAttribs, indices, indirect);
+    void bindStaticDataBuffer(BindBufferInfo staticAttribs) {
+        this->add<BindStaticDataBuffer>(staticAttribs);
+    }
+
+    void bindAppendDataBuffer(BindBufferInfo appendAttribs) {
+        this->add<BindAppendDataBuffer>(appendAttribs);
+    }
+
+    void bindIndexBuffer(BindBufferInfo indices) {
+        this->add<BindIndexBuffer>(indices);
+    }
+
+    void bindIndirectBuffer(BindBufferInfo indirect) {
+        this->add<BindIndirectBuffer>(indirect);
     }
 
     void draw(PrimitiveType type, unsigned int baseVertex, unsigned int vertexCount) {
@@ -197,6 +216,10 @@ public:
 
     void drawIndexedIndirect(PrimitiveType type) {
         this->add<DrawIndexedIndirect>(type);
+    }
+
+    void addBarrier(BarrierType type) {
+        this->add<AddBarrier>(type);
     }
 
     using Command = std::pair<Type, void*>;

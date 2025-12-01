@@ -1,33 +1,13 @@
-/*
- * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this list of
- *    conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list
- *    of conditions and the following disclaimer in the documentation and/or other materials
- *    provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without specific prior written
- *    permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 #include "include/ports/SkFontMgr_ohos.h"
+
+#include <unordered_set>
+
+#include <native_drawing/drawing_text_font_descriptor.h>
+#include <native_drawing/drawing_text_typography.h>
 
 #include "include/core/SkFontArguments.h"
 #include "include/core/SkFontMgr.h"
@@ -42,10 +22,6 @@
 #include "src/ports/SkFontScanner_FreeType_priv.h"
 #include "src/ports/SkTypeface_FreeType.h"
 #include "src/utils/SkOSPath.h"
-
-static constexpr const char* kFontFileSuffixes[] = {".ttf", ".ttc", ".otf", ".pfb"};
-
-static constexpr int kFontFileSuffixCount = std::size(kFontFileSuffixes);
 
 class SkData;
 
@@ -98,16 +74,20 @@ sk_sp<SkTypeface> SkTypeface_OHOS::onMakeClone(const SkFontArguments& args) cons
         SkFontStyle style = this->fontStyle();
         bool isFixedPitch = this->isFixedPitch();
         SkFontScanner::AxisDefinitions axisDefs;
+        SkFontScanner::VariationPosition current;
         if (!fontScanner.scanInstance(
-                    stream.get(), ttcIndex, 0, &familyName, &style, &isFixedPitch, &axisDefs)) {
-            SkDebugf("[SkTypeface_OHOS::onMakeClone] clone SkTypeface failed, familyName:%s",
+                    stream.get(), ttcIndex, 0, &familyName,
+                    &style, &isFixedPitch, &axisDefs, &current)) {
+            SkDebugf("[SkTypeface_OHOS::onMakeClone] Failed to scan font, familyName:%s",
                      familyName.c_str());
             return nullptr;
         }
+        const SkFontArguments::VariationPosition currentPos{current.data(), current.size()};
         if (axisDefs.size() > 0) {
             SkFixed axis[axisDefs.size()];
             fontScanner.computeAxisValues(
-                    axisDefs, args.getVariationDesignPosition(), axis, familyName, &style);
+                    axisDefs, currentPos, args.getVariationDesignPosition(),
+                    axis, familyName, &style);
 
             // setAxisSet
             AxisSet axisSet;
@@ -122,7 +102,7 @@ sk_sp<SkTypeface> SkTypeface_OHOS::onMakeClone(const SkFontArguments& args) cons
             auto slant = style.slant();
             for (size_t i = 0; i < axisSet.axis.size(); i++) {
                 auto value = SkFixedToScalar(axisSet.axis[i]);
-                auto tag = axisSet.range[i].fTag;
+                auto tag = axisSet.range[i].tag;
                 if (tag == SkSetFourByteTag('w', 'g', 'h', 't')) {
                     weight = SkScalarFloorToInt(value);
                 } else if (tag == SkSetFourByteTag('w', 'd', 't', 'h')) {
@@ -142,7 +122,7 @@ std::unique_ptr<SkFontData> SkTypeface_OHOS::onMakeFontData() const {
     int index;
     std::unique_ptr<SkStreamAsset> stream(this->onOpenStream(&index));
     if (!stream) {
-        SkDebugf("[SkTypeface_OHOS::onMakeFontData] open stream from file failed, file name:%s",
+        SkDebugf("[SkTypeface_OHOS::onMakeFontData] Failed to open stream from file, file name:%s",
                  this->fPath.c_str());
         return nullptr;
     }
@@ -289,31 +269,32 @@ uint32_t SkFontStyleSet_OHOS::getFontStyleDifference(const SkFontStyle& dstStyle
 
 SkFontMgr_OHOS::SkFontMgr_OHOS(const SystemFontLoader_OHOS& loader)
         : fDefaultFamily(nullptr), fontConfigInfo(nullptr) {
+    loader.loadFonts(&fFamilies);
     OH_Drawing_FontConfigInfoErrorCode code;
     fontConfigInfo = OH_Drawing_GetSystemFontConfigInfo(&code);
-    if (code != OH_Drawing_FontConfigInfoErrorCode::SUCCESS_FONT_CONFIG_INFO) {
-        SkDebugf("[SkFontMgr_OHOS] call OH_Drawing_GetSystemFontConfigInfo failed, error code:<%d>",
+    if (code != OH_Drawing_FontConfigInfoErrorCode::SUCCESS_FONT_CONFIG_INFO || !fontConfigInfo) {
+        SkDebugf("[SkFontMgr_OHOS] call OH_Drawing_GetSystemFontConfigInfo failed, error code:%d",
                  static_cast<int>(code));
-    } else {
-        for (size_t i = 0; i < fontConfigInfo->fontDirSize; ++i) {
-            SkString dir(fontConfigInfo->fontDirSet[i]);
-            loader.loadSystemFonts(dir, fScanner, &fFamilies);
-        }
-        if (fontConfigInfo->fontGenericInfoSize > 0) {
-            fDefaultFamily = this->onMatchFamily(fontConfigInfo->fontGenericInfoSet[0].familyName);
-        }
+    } else if (fontConfigInfo->fontGenericInfoSize > 0) {
+        fDefaultFamily = this->onMatchFamily(fontConfigInfo->fontGenericInfoSet[0].familyName);
     }
 }
 
 SkFontMgr_OHOS::~SkFontMgr_OHOS() {
     fFamilies.clear();
-    OH_Drawing_DestroySystemFontConfigInfo(fontConfigInfo);
+    if (!fontConfigInfo) {
+        OH_Drawing_DestroySystemFontConfigInfo(fontConfigInfo);
+    }
 }
 
 int SkFontMgr_OHOS::onCountFamilies() const { return fFamilies.size(); }
 
 void SkFontMgr_OHOS::onGetFamilyName(int index, SkString* familyName) const {
     SkASSERT(index >= 0 && index < fFamilies.size());
+    if (!familyName) {
+        SkDebugf("[SkFontMgr_OHOS::onGetFamilyName] param familyName is a nullptr");
+        return;
+    }
     familyName->set(fFamilies[index]->getFamilyName());
 }
 
@@ -331,19 +312,20 @@ sk_sp<SkFontStyleSet> SkFontMgr_OHOS::onMatchFamily(const char familyName[]) con
             return fFamilies[i];
         }
     }
-    SkDebugf("[SkFontMgr_OHOS::onMatchFamily] match familyName failed, familyName is %s",
-             familyName);
     return nullptr;
 }
 
 sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyle(const char familyName[],
                                                      const SkFontStyle& fontStyle) const {
+    sk_sp<SkTypeface> tf = matchAlias(familyName, fontStyle);
+    if (tf != nullptr) {
+        return tf;
+    }
+
     sk_sp<SkFontStyleSet> sset(this->matchFamily(familyName));
     if (sset) {
         return sset->matchStyle(fontStyle);
     }
-    SkDebugf("[SkFontMgr_OHOS::onMatchFamilyStyle] match familyName failed, familyName is %s",
-             familyName);
     return nullptr;
 }
 
@@ -352,6 +334,10 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyleCharacter(const char familyN
                                                               const char* bcp47[],
                                                               int bcp47Count,
                                                               SkUnichar character) const {
+    if (!fontConfigInfo) {
+        return nullptr;
+    }
+
     int matchIndex = findFallbackGroup(familyName);
     int defaultIndex = findFallbackGroup(nullptr);
     sk_sp<SkTypeface> retTp;
@@ -387,8 +373,8 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyleCharacter(const char familyN
         }
     }
     SkDebugf(
-            "[SkFontMgr_OHOS::onMatchFamilyStyleCharacter] match character failed, character "
-            "SkUnichar:%d",
+            "[SkFontMgr_OHOS::onMatchFamilyStyleCharacter] Failed to match character, "
+            "character SkUnichar:%d",
             character);
     return nullptr;
 }
@@ -519,12 +505,70 @@ int SkFontMgr_OHOS::findFallbackGroup(const char familyName[]) const {
     return -1;
 }
 
-void SkFontMgr_OHOS::SystemFontLoader_OHOS::loadSystemFonts(
-        SkString dir,
-        const SkFontScanner_FreeType& scanner,
-        SkFontMgr_OHOS::Families* families) const {
-    for (int i = 0; i < kFontFileSuffixCount; ++i) {
-        load_directory_fonts(scanner, dir, kFontFileSuffixes[i], families);
+sk_sp<SkTypeface> SkFontMgr_OHOS::matchAlias(const char familyName[], SkFontStyle fontStyle) const {
+    if (!fontConfigInfo) {
+        return nullptr;
+    }
+
+    for (size_t i = 0; i < fontConfigInfo->fontGenericInfoSize; i++) {
+        OH_Drawing_FontGenericInfo fontGenericInfo = fontConfigInfo->fontGenericInfoSet[i];
+        for (size_t j = 0; j < fontGenericInfo.aliasInfoSize; j++) {
+            OH_Drawing_FontAliasInfo aliasInfo = fontGenericInfo.aliasInfoSet[j];
+            if (aliasInfo.familyName == nullptr || familyName == nullptr ||
+                strcmp(aliasInfo.familyName, familyName) != 0) {
+                continue;
+            }
+            sk_sp<SkFontStyleSet> sset(this->matchFamily(fontGenericInfo.familyName));
+            // When the weight value is greater than 0,the font set contains only fonts with the
+            // specified weight.When the weight value is equal to 0, the font set contains all
+            // fonts.
+            if (aliasInfo.weight) {
+                fontStyle = SkFontStyle(aliasInfo.weight, fontStyle.width(), fontStyle.slant());
+            }
+            return sset->matchStyle(fontStyle);
+        }
+    }
+    return nullptr;
+}
+
+void SkFontMgr_OHOS::SystemFontLoader_OHOS::loadFonts(SkFontMgr_OHOS::Families* families) const {
+    std::unordered_set<std::string> filenameSet;
+
+    OH_Drawing_Array* array =
+            OH_Drawing_GetSystemFontFullNamesByType(OH_Drawing_SystemFontType::ALL);
+    if (!array) {
+        SkDebugf("[loadFonts] Failed to get system font full names by type.");
+        return;
+    }
+
+    size_t arraySize = OH_Drawing_GetDrawingArraySize(array);
+    for (size_t i = 0; i < arraySize; i++) {
+        const OH_Drawing_String* strInfo = OH_Drawing_GetSystemFontFullNameByIndex(array, i);
+        if (!strInfo) {
+            SkDebugf("[loadFonts] Failed to get system font full name by index, index: %d", i);
+            continue;
+        }
+
+        OH_Drawing_FontDescriptor* fontDesc =
+                OH_Drawing_GetFontDescriptorByFullName(strInfo, OH_Drawing_SystemFontType::ALL);
+        if (!fontDesc || !fontDesc->path) {
+            SkDebugf("[loadFonts] Failed to get font description or path by string info, index: %d",
+                     i);
+            continue;
+        }
+
+        filenameSet.insert(std::string(fontDesc->path));
+    }
+    OH_Drawing_DestroySystemFontFullNames(array);
+
+    for (std::string filename : filenameSet) {
+        std::unique_ptr<SkStreamAsset> stream = SkStream::MakeFromFile(filename.c_str());
+        if (!stream) {
+            SkDebugf("[loadFonts] Failed to make stream from font file, file name:%s",
+                     filename.c_str());
+            continue;
+        }
+        parse_face(stream, filename.c_str(), families);
     }
 }
 
@@ -538,48 +582,40 @@ SkFontStyleSet_OHOS* SkFontMgr_OHOS::SystemFontLoader_OHOS::find_family(
     return nullptr;
 }
 
-void SkFontMgr_OHOS::SystemFontLoader_OHOS::load_directory_fonts(
-        const SkFontScanner_FreeType& scanner,
-        const SkString& directory,
-        const char* suffix,
-        SkFontMgr_OHOS::Families* families) {
-    SkOSFile::Iter iter(directory.c_str(), suffix);
-    SkString name;
-    while (iter.next(&name, false)) {
-        SkString filename(SkOSPath::Join(directory.c_str(), name.c_str()));
-        std::unique_ptr<SkStreamAsset> stream = SkStream::MakeFromFile(filename.c_str());
-        if (!stream) {
-            SkDebugf(
-                    "[SkFontMgr_OHOS::SystemFontLoader_OHOS::load_directory_fonts] make stream "
-                    "from font file failed, file name:%s",
-                    filename.c_str());
-            continue;
-        }
-        parse_typeface(scanner, stream, filename, families);
-    }
-}
-
-void SkFontMgr_OHOS::SystemFontLoader_OHOS::parse_typeface(
-        const SkFontScanner_FreeType& scanner,
-        const std::unique_ptr<SkStreamAsset>& stream,
-        const SkString& filename,
-        SkFontMgr_OHOS::Families* families) {
+void SkFontMgr_OHOS::SystemFontLoader_OHOS::parse_face(const std::unique_ptr<SkStreamAsset>& stream,
+                                                       const char* filename,
+                                                       SkFontMgr_OHOS::Families* families) const {
     int numFaces;
-    if (!scanner.scanFile(stream.get(), &numFaces)) {
-        SkDebugf(
-                "[SkFontMgr_OHOS::SystemFontLoader_OHOS::parse_typeface] parse font file stream "
-                "failed, file name:%s",
-                filename.c_str());
+    if (!fScanner.scanFile(stream.get(), &numFaces)) {
+        SkDebugf("[parse_typeface] Failed to parse font file stream, file name:%s", filename);
         return;
     }
 
     for (int faceIndex = 0; faceIndex < numFaces; ++faceIndex) {
+        parse_instance(stream, filename, families, faceIndex);
+    }
+}
+
+void SkFontMgr_OHOS::SystemFontLoader_OHOS::parse_instance(
+        const std::unique_ptr<SkStreamAsset>& stream,
+        const char* filename,
+        SkFontMgr_OHOS::Families* families,
+        int faceIndex) const {
+    int numInstances;
+    if (!fScanner.scanFace(stream.get(), faceIndex, &numInstances)) {
+        SkDebugf("[parse_instance] Failed to parse font file stream, file name:%s", filename);
+        return;
+    }
+    for (int i = 0; i <= numInstances; ++i) {
         bool isFixedPitch;
         SkString realname;
         SkFontStyle style = SkFontStyle();
         SkFontScanner::AxisDefinitions axisDefs;
-        if (!scanner.scanInstance(
-                    stream.get(), faceIndex, 0, &realname, &style, &isFixedPitch, &axisDefs)) {
+        SkFontScanner::VariationPosition current;
+        if (!fScanner.scanInstance(
+                    stream.get(), faceIndex, i, &realname,
+                    &style,&isFixedPitch, &axisDefs, &current)) {
+            SkDebugf("[parse_instance] Failed to open file as a font, file name: %s", filename);
             continue;
         }
         SkFontStyleSet_OHOS* addTo = find_family(*families, realname.c_str());
@@ -589,11 +625,14 @@ void SkFontMgr_OHOS::SystemFontLoader_OHOS::parse_typeface(
         }
         AxisSet axisSet;
         sk_sp<SkTypeface> typeface = sk_make_sp<SkTypeface_OHOS>(
-                style, isFixedPitch, true, realname, filename.c_str(), faceIndex, axisSet);
+                style, isFixedPitch, true, realname, filename, (i << 16) + faceIndex, axisSet);
         addTo->appendTypeface(typeface);
 
         SkTypeface::LocalizedString localizedStr;
         auto iter = typeface->createFamilyNameIterator();
+        if (!iter) {
+            continue;
+        }
         while (iter->next(&localizedStr)) {
             SkString localName = localizedStr.fString;
             if (localName.equals(realname) || localName.isEmpty()) {
@@ -605,7 +644,7 @@ void SkFontMgr_OHOS::SystemFontLoader_OHOS::parse_typeface(
                 families->push_back().reset(localizedAddTo);
             }
             sk_sp<SkTypeface> localTypeface = sk_make_sp<SkTypeface_OHOS>(
-                    style, isFixedPitch, true, localName, filename.c_str(), faceIndex, axisSet);
+                    style, isFixedPitch, true, localName, filename, (i << 16) + faceIndex, axisSet);
             localizedAddTo->appendTypeface(localTypeface);
         }
     }

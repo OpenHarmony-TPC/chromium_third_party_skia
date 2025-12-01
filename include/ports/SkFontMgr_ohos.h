@@ -1,35 +1,11 @@
-/*
- * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this list of
- *    conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list
- *    of conditions and the following disclaimer in the documentation and/or other materials
- *    provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without specific prior written
- *    permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 #ifndef SkFontMgr_ohos_DEFINED
 #define SkFontMgr_ohos_DEFINED
 
+#include "include/core/SkFontParameters.h"
 #include "include/core/SkFontMgr.h"
 #include "include/core/SkFontScanner.h"
 #include "include/core/SkFontStyle.h"
@@ -49,7 +25,7 @@ class SkTypeface;
 // To manage the axis values for variable font
 struct AxisSet {
     std::vector<SkFixed> axis;                         // the axis values
-    std::vector<SkFontScanner::AxisDefinition> range;  // the axis ranges
+    std::vector<SkFontParameters::Variation::Axis> range;  // the axis ranges
 };
 
 class SkTypeface_OHOS : public SkTypeface_FreeType {
@@ -113,19 +89,19 @@ public:
     public:
         SystemFontLoader_OHOS() = default;
         ~SystemFontLoader_OHOS() = default;
-        void loadSystemFonts(SkString dir, const SkFontScanner_FreeType&, Families*) const;
+        void loadFonts(Families* families) const;
 
     private:
         static SkFontStyleSet_OHOS* find_family(SkFontMgr_OHOS::Families& families,
                                                 const char familyName[]);
-        static void load_directory_fonts(const SkFontScanner_FreeType& scanner,
-                                         const SkString& directory,
-                                         const char* suffix,
-                                         SkFontMgr_OHOS::Families* families);
-        static void parse_typeface(const SkFontScanner_FreeType& scanner,
-                                   const std::unique_ptr<SkStreamAsset>& stream,
-                                   const SkString& filename,
-                                   SkFontMgr_OHOS::Families* families);
+        void parse_face(const std::unique_ptr<SkStreamAsset>& stream,
+                        const char* filename,
+                        SkFontMgr_OHOS::Families* families) const;
+        void parse_instance(const std::unique_ptr<SkStreamAsset>& stream,
+                            const char* filename,
+                            SkFontMgr_OHOS::Families* families,
+                            int faceIndex) const;
+        SkFontScanner_FreeType fScanner;
     };
     explicit SkFontMgr_OHOS(const SystemFontLoader_OHOS& loader);
     ~SkFontMgr_OHOS() override;
@@ -154,7 +130,6 @@ protected:
 private:
     Families fFamilies;
     sk_sp<SkFontStyleSet> fDefaultFamily;
-    SkFontScanner_FreeType fScanner;
     OH_Drawing_FontConfigInfo* fontConfigInfo;
 
     sk_sp<SkTypeface> findTypeface(OH_Drawing_FontFallbackGroup& fallbackGroup,
@@ -167,6 +142,8 @@ private:
                      int bcp47Count,
                      const int tps[]) const;
     int findFallbackGroup(const char familyName[]) const;
+    // match alias of generic fonts in OHOS
+    sk_sp<SkTypeface> matchAlias(const char familyName[], SkFontStyle fontStyle) const;
 };
 
 SK_API sk_sp<SkFontMgr> SkFontMgr_New_OHOS();
