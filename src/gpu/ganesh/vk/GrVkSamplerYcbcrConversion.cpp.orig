@@ -13,7 +13,6 @@
 #include "src/gpu/ganesh/vk/GrVkGpu.h"
 #include "src/gpu/ganesh/vk/GrVkUtil.h"
 #include "src/gpu/vk/VulkanUtilsPriv.h"
-#include "vulkan_ohos.h"
 
 GrVkSamplerYcbcrConversion* GrVkSamplerYcbcrConversion::Create(
         GrVkGpu* gpu, const skgpu::VulkanYcbcrConversionInfo& info) {
