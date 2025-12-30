@@ -394,7 +394,7 @@ void GrVkCaps::init(const GrContextOptions& contextOptions,
     // we do expect this to be a big win on tilers.
     //
     // On ARM devices we are seeing an average perf win of around 50%-60% across the board.
-    if (skgpu::kARM_VkVendor == properties.vendorID) {
+    if (skgpu::kARM_VkVendor == properties.vendorID || skgpu::kHisi_VkVendor == properties.vendorID) {
         VkMemoryPropertyFlags requiredLazyFlags = VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
         if (fSupportsProtectedContent) {
             // If we have a protected context we can only use memoryless images if they also support
