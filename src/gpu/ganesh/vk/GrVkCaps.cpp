@@ -46,7 +46,7 @@
 #include <cstring>
 #include <memory>
 
-#if defined(SK_BUILD_FOR_ANDROID) && !defined(OSOHOS)
+#ifdef SK_BUILD_FOR_ANDROID
 #include <sys/system_properties.h>
 #endif
 
@@ -394,7 +394,7 @@ void GrVkCaps::init(const GrContextOptions& contextOptions,
     // we do expect this to be a big win on tilers.
     //
     // On ARM devices we are seeing an average perf win of around 50%-60% across the board.
-    if (skgpu::kARM_VkVendor == properties.vendorID || skgpu::kHisi_VkVendor == properties.vendorID) {
+    if (skgpu::kARM_VkVendor == properties.vendorID) {
         VkMemoryPropertyFlags requiredLazyFlags = VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
         if (fSupportsProtectedContent) {
             // If we have a protected context we can only use memoryless images if they also support
@@ -492,8 +492,7 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
     // above a certain api level. So this will just default to it being less which will enable
     // workarounds.
     int androidAPIVersion = 0;
-#if defined(SK_BUILD_FOR_ANDROID) && !defined(OSOHOS)
-#define PROP_VALUE_MAX 92
+#if defined(SK_BUILD_FOR_ANDROID)
     char androidAPIVersionStr[PROP_VALUE_MAX];
     int strLength = __system_property_get("ro.build.version.sdk", androidAPIVersionStr);
     // Defaults to zero since most checks care if it is greater than a specific value. So this will
@@ -509,13 +508,13 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
     }
 
     // On Mali galaxy s7 we see lots of rendering issues when we suballocate VkImages.
-    if ((skgpu::kARM_VkVendor == properties.vendorID && androidAPIVersion <= 28) || skgpu::kHisi_VkVendor == properties.vendorID) {
+    if (skgpu::kARM_VkVendor == properties.vendorID && androidAPIVersion <= 28) {
         fShouldAlwaysUseDedicatedImageMemory = true;
     }
 
     // On Mali galaxy s7 and s9 we see lots of rendering issues with image filters dropping out when
     // using only primary command buffers. We also see issues on the P30 running android 28.
-    if ((skgpu::kARM_VkVendor == properties.vendorID && androidAPIVersion <= 28)) {
+    if (skgpu::kARM_VkVendor == properties.vendorID && androidAPIVersion <= 28) {
         fPreferPrimaryOverSecondaryCommandBuffers = false;
         // If we are using secondary command buffers our code isn't setup to insert barriers into
         // the secondary cb so we need to disable support for them.
@@ -533,7 +532,7 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
 
     // On the Mali G76 and T880, the Perlin noise code needs to aggressively snap to multiples
     // of 1/255 to avoid artifacts in the double table lookup.
-    if (skgpu::kARM_VkVendor == properties.vendorID || skgpu::kHisi_VkVendor  == properties.vendorID) {
+    if (skgpu::kARM_VkVendor == properties.vendorID) {
         fShaderCaps->fPerlinNoiseRoundingFix = true;
     }
 
@@ -552,8 +551,7 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
     if (properties.vendorID == skgpu::kQualcomm_VkVendor ||
         properties.vendorID == skgpu::kARM_VkVendor ||
         (properties.vendorID == skgpu::kGoogle_VkVendor &&
-         properties.deviceID == kSwiftshader_DeviceID) ||
-        properties.vendorID == skgpu::kHisi_VkVendor) {
+         properties.deviceID == kSwiftshader_DeviceID)) {
         fMustLoadFullImageWithDiscardableMSAA = true;
     }
 
@@ -573,10 +571,6 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
 
     if (skgpu::kARM_VkVendor == properties.vendorID) {
         fAvoidWritePixelsFastPath = true; // bugs.skia.org/8064
-    }
-
-    if (skgpu::kHisi_VkVendor == properties.vendorID) {
-        fAvoidWritePixelsFastPath = false; // bugs.skia.org/8064
     }
 
     // AMD advertises support for MAX_UINT vertex input attributes, but in reality only supports 32.
@@ -609,7 +603,7 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
 
     // On ARM indirect draws are broken on Android 9 and earlier. This was tested on a P30 and
     // Mate 20x running android 9.
-    if ((properties.vendorID == skgpu::kARM_VkVendor && androidAPIVersion <= 28) || skgpu::kHisi_VkVendor == properties.vendorID) {
+    if (properties.vendorID == skgpu::kARM_VkVendor && androidAPIVersion <= 28) {
         fNativeDrawIndirectSupport = false;
     }
 
@@ -623,7 +617,7 @@ void GrVkCaps::applyDriverCorrectnessWorkarounds(const VkPhysicalDevicePropertie
 
     // ARM GPUs calculate `matrix * vector` in SPIR-V at full precision, even when the inputs are
     // RelaxedPrecision. Rewriting the multiply as a sum of vector*scalar fixes this. (skbug.com/40042841)
-    if (skgpu::kARM_VkVendor == properties.vendorID || skgpu::kHisi_VkVendor == properties.vendorID) {
+    if (skgpu::kARM_VkVendor == properties.vendorID) {
         fShaderCaps->fRewriteMatrixVectorMultiply = true;
     }
 
@@ -707,7 +701,7 @@ void GrVkCaps::initGrCaps(const skgpu::VulkanInterface* vkInterface,
         }
     }
 
-    if (skgpu::kARM_VkVendor == properties.vendorID || skgpu::kHisi_VkVendor == properties.vendorID) {
+    if (skgpu::kARM_VkVendor == properties.vendorID) {
         fShouldCollapseSrcOverToSrcWhenAble = true;
     }
 }
