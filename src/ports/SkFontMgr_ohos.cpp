@@ -303,7 +303,7 @@ SkFontMgr_OHOS::SkFontMgr_OHOS(const SystemFontLoader_OHOS& loader)
 
 SkFontMgr_OHOS::~SkFontMgr_OHOS() {
     fFamilies.clear();
-    if (!fontConfigInfo) {
+    if (fontConfigInfo) {
         OH_Drawing_DestroySystemFontConfigInfo(fontConfigInfo);
     }
 }
