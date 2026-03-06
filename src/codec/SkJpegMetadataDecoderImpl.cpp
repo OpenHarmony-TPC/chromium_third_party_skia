@@ -12,6 +12,9 @@
 #include "include/private/base/SkTemplates.h"
 #include "src/codec/SkCodecPriv.h"
 #include "src/codec/SkJpegConstants.h"
+#if BUILDFLAG(ARKWEB_MEDIA_POLICY)
+#include "base/logging.h"
+#endif
 
 #include <cstdint>
 #include <cstring>
@@ -185,6 +188,12 @@ bool SkJpegMetadataDecoderImpl::findGainmapImage(SkJpegSourceMgr* sourceMgr,
 
     // Determine if Adobe HDR gain map is indicated in the base image.
     bool adobeGainmapPresent = xmp && xmp->getGainmapInfoAdobe(nullptr);
+#if BUILDFLAG(ARKWEB_MEDIA_POLICY)
+    if (adobeGainmapPresent) {
+        LOG(INFO) << "SkJpegMetadataDecoderImpl::findGainmapImage, adobeGainmapPresent = true";
+        adobeGainmapPresent = false;
+    }
+#endif
 
     // Attempt to locate the gainmap from the container XMP.
     size_t containerGainmapOffset = 0;
