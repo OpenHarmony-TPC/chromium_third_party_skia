@@ -216,6 +216,6 @@ DEF_TEST(Descriptor_flatten_unflatten, r) {
         SkReadBuffer reader{data32, sizeof(data32)};
         auto ad = SkAutoDescriptor::MakeFromBuffer(reader);
         REPORTER_ASSERT(r, !ad.has_value());
- 	}
+    }
 
 }
