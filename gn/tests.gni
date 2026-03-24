@@ -473,6 +473,7 @@ pathops_tests_sources = [
 ]
 
 ganesh_tests_sources = [
+  "$_tests/AtlasOobTest.cpp",
   "$_tests/BulkRectTest.cpp",
   "$_tests/ClearTest.cpp",
   "$_tests/DMSAATest.cpp",
