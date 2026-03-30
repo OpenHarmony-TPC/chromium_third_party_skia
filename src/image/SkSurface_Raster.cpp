@@ -30,6 +30,8 @@
 #include <cstring>
 #include <utility>
 
+#include "arkweb/build/features/features.h"
+
 class SkImage;
 class SkPaint;
 class SkPixmap;
@@ -178,6 +180,24 @@ bool SkSurface_Raster::onCopyOnWrite(ContentChangeMode mode) {
 sk_sp<const SkCapabilities> SkSurface_Raster::onCapabilities() {
     return SkCapabilities::RasterBackend();
 }
+
+#if BUILDFLAG(ARKWEB_DRAG_DROP)
+sk_sp<SkSurface> SkSurface::MakeRaster(const SkImageInfo& info, size_t rowBytes,
+                                       const SkSurfaceProps* props) {
+    if (!SkSurfaceValidateRasterInfo(info)) {
+        return nullptr;
+    }
+
+    sk_sp<SkPixelRef> pr = SkMallocPixelRef::MakeAllocate(info, rowBytes);
+    if (!pr) {
+        return nullptr;
+    }
+    if (rowBytes) {
+        SkASSERT(pr->rowBytes() == rowBytes);
+    }
+    return sk_make_sp<SkSurface_Raster>(info, std::move(pr), props);
+}
+#endif
 
 SkRecorder* SkSurface_Raster::onGetBaseRecorder() const {
     return fRecorder;

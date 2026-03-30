@@ -5,6 +5,7 @@
 
 import("../third_party.gni")
 import("zlib.gni")
+import("//arkweb/build/config/sanitizers/sanitizers.gni")
 
 if (skia_use_system_zlib) {
   system("zlib") {
@@ -104,7 +105,13 @@ if (skia_use_system_zlib) {
       ]
 
       if (!is_win && !is_clang) {
+        if (!enable_cfi_protection) {
         cflags_c = [ "-march=armv8-a+aes+crc" ]
+        } else {
+          configs -= [ "//arkweb/build/config/sanitizers:armv83a" ]
+          cflags = [ "-march=armv8-a+pauth-hint-only+aes+crc" ]
+          cflags_c = cflags
+        }
       }
 
       sources = [

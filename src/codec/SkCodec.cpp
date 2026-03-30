@@ -7,6 +7,7 @@
 
 #include "include/codec/SkCodec.h"
 
+#include "arkweb/build/features/features.h"
 #include "include/codec/SkCodecAnimation.h"
 #include "include/codec/SkPixmapUtils.h"
 #include "include/core/SkAlphaType.h"
@@ -31,28 +32,28 @@
 #include <string_view>
 #include <utility>
 
-#if !defined(SK_DISABLE_LEGACY_INIT_DECODERS)
+// #if !defined(SK_DISABLE_LEGACY_INIT_DECODERS)
 #include "include/private/base/SkOnce.h"
 
 #if defined(SK_CODEC_DECODES_AVIF)
 #include "include/codec/SkAvifDecoder.h"
 #endif
 
-#if defined(SK_CODEC_DECODES_BMP)
+// #if defined(SK_CODEC_DECODES_BMP)
 #include "include/codec/SkBmpDecoder.h"
-#endif
+// #endif
 
-#if defined(SK_CODEC_DECODES_GIF) || defined(SK_HAS_WUFFS_LIBRARY)
+// #if defined(SK_CODEC_DECODES_GIF) || defined(SK_HAS_WUFFS_LIBRARY)
 #include "include/codec/SkGifDecoder.h"
-#endif
+// #endif
 
 #if defined(SK_CODEC_DECODES_ICO)
 #include "include/codec/SkIcoDecoder.h"
 #endif
 
-#if defined(SK_CODEC_DECODES_JPEG)
+// #if defined(SK_CODEC_DECODES_JPEG)
 #include "include/codec/SkJpegDecoder.h"
-#endif
+// #endif
 
 #if defined(SK_CODEC_DECODES_JPEGXL)
 #include "include/codec/SkJpegxlDecoder.h"
@@ -72,17 +73,17 @@
 #include "include/codec/SkWbmpDecoder.h"
 #endif
 
-#if defined(SK_CODEC_DECODES_WEBP)
+// #if defined(SK_CODEC_DECODES_WEBP)
 #include "include/codec/SkWebpDecoder.h"
-#endif
-#endif // !defined(SK_DISABLE_LEGACY_INIT_DECODERS)
+// #endif
+// #endif // !defined(SK_DISABLE_LEGACY_INIT_DECODERS)
 
 namespace SkCodecs {
 // A static variable inside a function avoids a static initializer.
 // https://chromium.googlesource.com/chromium/src/+/HEAD/docs/static_initializers.md#removing-static-initializers
 static std::vector<Decoder>* get_decoders_for_editing() {
     static SkNoDestructor<std::vector<Decoder>> decoders;
-#if !defined(SK_DISABLE_LEGACY_INIT_DECODERS)
+// #if !defined(SK_DISABLE_LEGACY_INIT_DECODERS)
     static SkOnce once;
     once([] {
         if (decoders->empty()) {
@@ -91,21 +92,21 @@ static std::vector<Decoder>* get_decoders_for_editing() {
 #elif defined(SK_CODEC_DECODES_PNG_WITH_RUST)
             decoders->push_back(SkPngRustDecoder::Decoder());
 #endif
-#if defined(SK_CODEC_DECODES_JPEG)
+// #if defined(SK_CODEC_DECODES_JPEG)
             decoders->push_back(SkJpegDecoder::Decoder());
-#endif
-#if defined(SK_CODEC_DECODES_WEBP)
+// #endif
+// #if defined(SK_CODEC_DECODES_WEBP)
             decoders->push_back(SkWebpDecoder::Decoder());
-#endif
-#if defined(SK_CODEC_DECODES_GIF) || defined(SK_HAS_WUFFS_LIBRARY)
+// #endif
+// #if defined(SK_CODEC_DECODES_GIF) || defined(SK_HAS_WUFFS_LIBRARY)
             decoders->push_back(SkGifDecoder::Decoder());
-#endif
+// #endif
 #if defined(SK_CODEC_DECODES_ICO)
             decoders->push_back(SkIcoDecoder::Decoder());
 #endif
-#if defined(SK_CODEC_DECODES_BMP)
+// #if defined(SK_CODEC_DECODES_BMP)
             decoders->push_back(SkBmpDecoder::Decoder());
-#endif
+// #endif
 #if defined(SK_CODEC_DECODES_WBMP)
             decoders->push_back(SkWbmpDecoder::Decoder());
 #endif
@@ -124,7 +125,7 @@ static std::vector<Decoder>* get_decoders_for_editing() {
 #endif
         }
     });
-#endif // !defined(SK_DISABLE_LEGACY_INIT_DECODERS)
+// #endif // !defined(SK_DISABLE_LEGACY_INIT_DECODERS)
     return decoders.get();
 }
 
