@@ -427,6 +427,7 @@ ganesh_tests_sources = [
   "$_tests/BackendAllocationTest.cpp",
   "$_tests/BackendSurfaceMutableStateTest.cpp",
   "$_tests/BlendTest.cpp",
+  "$_tests/AtlasOobTest.cpp",
   "$_tests/BulkRectTest.cpp",
   "$_tests/ClearTest.cpp",
   "$_tests/CompressedBackendAllocationTest.cpp",
