@@ -10,6 +10,7 @@
 #include "include/core/SkData.h"
 #include "include/core/SkStream.h"
 #include "src/base/SkEndian.h"
+#include "src/base/SkSafeMath.h"
 #include "src/codec/SkCodecPriv.h"
 #include "src/codec/SkJpegConstants.h"
 #include "src/codec/SkJpegSegmentScan.h"
@@ -127,7 +128,9 @@ std::unique_ptr<SkJpegMultiPictureParameters> SkJpegMultiPictureParameters::Make
                     SkCodecPrintf("MP entries data could not be extracted.\n");
                     return nullptr;
                 }
-                if (mpEntriesData->size() != kMPEntrySize * numberOfImages) {
+                SkSafeMath expectedSizeSafe;
+ 	            const size_t expectedSize = expectedSizeSafe.mul(kMPEntrySize, numberOfImages);
+ 	            if (!expectedSizeSafe.ok() || mpEntriesData->size() != expectedSize) {
                     SkCodecPrintf("MP entries data should be %ux%u bytes, was %u.\n",
                                   kMPEntrySize,
                                   numberOfImages,
