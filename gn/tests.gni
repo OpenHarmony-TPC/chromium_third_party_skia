@@ -422,6 +422,7 @@ pathops_tests_sources = [
 ]
 
 ganesh_tests_sources = [
+  "$_tests/AtlasOobTest.cpp",
   "$_tests/AdvancedBlendTest.cpp",
   "$_tests/ApplyGammaTest.cpp",
   "$_tests/BackendAllocationTest.cpp",
