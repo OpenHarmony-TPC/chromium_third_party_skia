@@ -165,9 +165,9 @@ public:
 
     /**
      * Gets the size of the key for the shape represented by this Shape.
-     * A negative value is returned if the shape has no key (shouldn't be cached).
+     * A zero value is returned if the shape has no key (shouldn't be cached).
      */
-    int keySize() const;
+    uint16_t keySize() const;
 
     bool hasKey() const { return this->keySize() >= 0; }
 

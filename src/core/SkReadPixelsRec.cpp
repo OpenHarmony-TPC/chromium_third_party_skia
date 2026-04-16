@@ -22,7 +22,7 @@ bool SkReadPixelsRec::trim(int srcWidth, int srcHeight) {
     if (fX == INT_MIN || fY == INT_MIN) {
         return false;
     }
-    
+
     int x = fX;
     int y = fY;
     SkIRect srcR = SkIRect::MakeXYWH(x, y, fInfo.width(), fInfo.height());
