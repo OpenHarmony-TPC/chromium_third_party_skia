@@ -49,7 +49,7 @@ public:
 
     class Builder : public ResourceKey::Builder {
     public:
-        Builder(GraphiteResourceKey* key, ResourceType type, int data32Count, Shareable shareable)
+        Builder(GraphiteResourceKey* key, ResourceType type, uint16_t data32Count, Shareable shareable)
                 : ResourceKey::Builder(key, type, data32Count) {
             key->fShareable = shareable;
         }

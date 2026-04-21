@@ -73,7 +73,7 @@ skgpu::UniqueKey GeneratePathMaskKey(const Shape& shape,
     skgpu::UniqueKey maskKey;
     {
         static const skgpu::UniqueKey::Domain kDomain = skgpu::UniqueKey::GenerateDomain();
-        int styleKeySize = 6;
+        uint16_t styleKeySize = 6;
         if (!strokeRec.isHairlineStyle() && !strokeRec.isFillStyle()) {
             // Add space for width and miter if needed
             styleKeySize += 2;

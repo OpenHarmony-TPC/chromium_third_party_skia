@@ -220,7 +220,7 @@ GraphiteResourceKey build_desc_set_key(const SkSpan<DescriptorData>& requestedDe
     }
 
     GraphiteResourceKey key;
-    GraphiteResourceKey::Builder builder(&key, kType, keyData.size(), Shareable::kNo);
+    GraphiteResourceKey::Builder builder(&key, kType, SkTo<uint16_t>(keyData.size()), Shareable::kNo);
 
     for (int i = 0; i < keyData.size(); i++) {
         builder[i] = keyData[i];
