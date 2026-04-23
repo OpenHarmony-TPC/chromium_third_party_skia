@@ -283,7 +283,7 @@ uint32_t SkFontStyleSet_OHOS::getFontStyleDifference(const SkFontStyle& dstStyle
         }
     }
     // The first 2 bytes to save weight difference, the third byte to save slant difference,
-    // and the fourth byte to save width difference
+    // and the fourth byte to save width difference 
     uint32_t diff = (widthDiff << 24) + (slantDiff << 16) + weightDiff;
     return diff;
 }
@@ -303,7 +303,7 @@ SkFontMgr_OHOS::SkFontMgr_OHOS(const SystemFontLoader_OHOS& loader)
 
 SkFontMgr_OHOS::~SkFontMgr_OHOS() {
     fFamilies.clear();
-    if (!fontConfigInfo) {
+    if (fontConfigInfo) {
         OH_Drawing_DestroySystemFontConfigInfo(fontConfigInfo);
     }
 }
