@@ -1,0 +1,11 @@
+[
+    {
+        "Name": "skia",
+        "License": "BSD-3-Clause",
+        "License File": "LICENSE",
+        "Version Number": "ee20d565acb08dece4a32e3f209cdd41119015ca",
+        "Owner": "huamengzheng@huawei.com",
+        "Upstream URL": "https://skia.googlesource.com/skia.git@ee20d565acb08dece4a32e3f209cdd41119015ca",
+        "Description": "第三方软件skia，2D图形库，用于绘制文本、几何图形和图像"
+    }
+]
