@@ -71,6 +71,35 @@ void SkData::operator delete(void* p) {
     ::operator delete(p);
 }
 
+#define RETURN_EMPTY_FOR_ZERO_SIZE(size)    \
+    do {                                    \
+        if ((size) == 0) {                  \
+            return SkData::MakeEmpty();     \
+        }                                   \
+    } while (false)
+
+#define VALIDATE_SUBSET(size, offset, length)           \
+    do {                                                \
+        if (offset > size || length > size - offset) {  \
+            return nullptr;                             \
+        }                                               \
+    } while (0)
+
+sk_sp<SkData> SkData::shareSubset(size_t offset, size_t length) {
+    VALIDATE_SUBSET(this->size(), offset, length);
+
+    if (offset == 0 && length == this->size()) {
+        return sk_ref_sp(this);
+    }
+
+    RETURN_EMPTY_FOR_ZERO_SIZE(length);
+
+    this->ref();
+    return SkData::MakeWithProc(this->bytes() + offset, length, [](const void*, void* ctx) {
+        ((SkData*)ctx)->unref();
+    }, this);
+}
+
 sk_sp<SkData> SkData::PrivateNewWithCopy(const void* srcOrNull, size_t length) {
     if (0 == length) {
         return SkData::MakeEmpty();
