@@ -167,8 +167,8 @@ void write_path_key_from_data(const SkPath& path, uint32_t* origKey) {
 }
 } // anonymous namespace
 
-int Shape::keySize() const {
-    int count = 1; // Every key has the state flags from the Shape
+uint16_t Shape::keySize() const {
+    uint16_t count = 1; // Every key has the state flags from the Shape
     switch(this->type()) {
         case Type::kLine:
             static_assert(0 == sizeof(skvx::float4) % sizeof(uint32_t));
@@ -188,14 +188,14 @@ int Shape::keySize() const {
             break;
         case Type::kPath: {
             if (this->path().isVolatile()) {
-                return -1; // volatile, so won't be keyed
+                return 0; // volatile, so won't be keyed
             }
             if (this->path().isEmpty()) {
-                return -1; // empty, so won't be keyed
+                return 0; // empty, so won't be keyed
             }
             int dataKeySize = path_key_from_data_size(this->path());
             if (dataKeySize >= 0) {
-                count += dataKeySize;
+                count += SkTo<uint16_t>(dataKeySize);
             } else {
                 count++; // Just adds the gen ID.
             }
