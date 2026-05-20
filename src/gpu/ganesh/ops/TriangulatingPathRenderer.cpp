@@ -284,7 +284,8 @@ private:
         bool inverseFill = shape.inverseFilled();
 
         static constexpr int kClipBoundsCnt = sizeof(devClipBounds) / sizeof(uint32_t);
-        uint16_t shapeKeyDataCnt = shape.unstyledKeySize();
+        int shapeKeyDataCnt = shape.unstyledKeySize();
+        SkASSERT(shapeKeyDataCnt >= 0);
         skgpu::UniqueKey::Builder builder(key, kDomain, shapeKeyDataCnt + kClipBoundsCnt, "Path");
         shape.writeUnstyledKey(&builder[0]);
         // For inverse fills, the tessellation is dependent on clip bounds.

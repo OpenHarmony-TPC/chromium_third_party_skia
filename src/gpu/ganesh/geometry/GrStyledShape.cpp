@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <limits>
 #include <utility>
 
 
@@ -142,12 +141,12 @@ static void write_path_key_from_data(const SkPath& path, uint32_t* origKey) {
     SkASSERT(key - origKey == path_key_from_data_size(path));
 }
 
-uint16_t GrStyledShape::unstyledKeySize() const {
+int GrStyledShape::unstyledKeySize() const {
     if (fInheritedKey.count()) {
-        return SkTo<uint16_t>(fInheritedKey.count());
+        return fInheritedKey.count();
     }
 
-    uint16_t count = 1; // Every key has the state flags from the GrShape
+    int count = 1; // Every key has the state flags from the GrShape
     switch(fShape.type()) {
         case GrShape::Type::kPoint:
             static_assert(0 == sizeof(SkPoint) % sizeof(uint32_t));
@@ -171,13 +170,11 @@ uint16_t GrStyledShape::unstyledKeySize() const {
             break;
         case GrShape::Type::kPath: {
             if (0 == fGenID) {
-                return 0; // volatile, so won't be keyed
+                return -1; // volatile, so won't be keyed
             }
-            // When >= 0, `dataKeySize` is a reasonably small number bounded by
-            // kMaxKeyFromDataVerbCnt since point count is derived from verb count.
             int dataKeySize = path_key_from_data_size(fShape.path());
             if (dataKeySize >= 0) {
-                count += SkTo<uint16_t>(dataKeySize);
+                count += dataKeySize;
             } else {
                 count++; // Just adds the gen ID.
             }
@@ -254,7 +251,6 @@ void GrStyledShape::writeUnstyledKey(uint32_t* key) const {
 
 void GrStyledShape::setInheritedKey(const GrStyledShape &parent, GrStyle::Apply apply,
                                     SkScalar scale) {
-    static constexpr int kInheritedKeyLimit = 1024;
     SkASSERT(!fInheritedKey.count());
     // If the output shape turns out to be simple, then we will just use its geometric key
     if (fShape.isPath()) {
@@ -268,7 +264,7 @@ void GrStyledShape::setInheritedKey(const GrStyledShape &parent, GrStyle::Apply 
         bool useParentGeoKey = !parentCnt;
         if (useParentGeoKey) {
             parentCnt = parent.unstyledKeySize();
-            if (!parentCnt) {
+            if (parentCnt < 0) {
                 // The parent's geometry has no key so we will have no key.
                 fGenID = 0;
                 return;
@@ -287,12 +283,7 @@ void GrStyledShape::setInheritedKey(const GrStyledShape &parent, GrStyle::Apply 
             // we try to get a key for the shape.
             fGenID = 0;
             return;
-        } else if (parentCnt + styleCnt > kInheritedKeyLimit) {
-            // Prevent chained path effects and styles from growing the key too large
-            fGenID = 0;
-            return;
         }
-
         fInheritedKey.reset(parentCnt + styleCnt);
         if (useParentGeoKey) {
             // This will be the geo key.
