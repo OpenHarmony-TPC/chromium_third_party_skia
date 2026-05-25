@@ -57,6 +57,15 @@ public:
         return const_cast<void*>(fPtr);
     }
 
+    /** Attempt to return a data that is a reference to a subset of the original data,
+     *  This will never make a deep copy of the contents, but will retain a reference
+     *  to the original data object.
+     *
+     *  If  offset+length > this->size(), then this returns nullptr.
+     */
+    sk_sp<SkData> shareSubset(size_t offset, size_t length);
+    sk_sp<const SkData> shareSubset(size_t offset, size_t length) const;
+
     /**
      *  Helper to copy a range of the data into a caller-provided buffer.
      *  Returns the actual number of bytes copied, after clamping offset and
