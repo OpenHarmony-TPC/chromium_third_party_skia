@@ -29,6 +29,7 @@
 
 #include "include/ports/SkFontMgr_ohos.h"
 
+#include <malloc.h>
 #include <unordered_set>
 
 #include <native_drawing/drawing_text_font_descriptor.h>
@@ -50,6 +51,10 @@
 
 class SkData;
 
+extern "C" __attribute__((weak)) {
+  int mallopt(int param, int value);
+}
+ 
 SkTypeface_OHOS::SkTypeface_OHOS(const SkFontStyle& style,
                                  bool isFixedPitch,
                                  bool sysFont,
@@ -590,6 +595,9 @@ void SkFontMgr_OHOS::SystemFontLoader_OHOS::loadFonts(SkFontMgr_OHOS::Families* 
             continue;
         }
         parse_face(stream, filename.c_str(), families);
+    }
+    if (mallopt) {
+        mallopt(M_FLUSH_THREAD_CACHE, 0);
     }
 }
 
